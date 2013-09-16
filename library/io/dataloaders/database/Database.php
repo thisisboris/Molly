@@ -13,15 +13,16 @@ namespace Molly\library\io\database;
 
 
 use Molly\library\exceptions\IllegalArgumentException;
+use Molly\library\io\database\objects\Connection;
 
 class Database {
 
     private static $singleton;
-
     private static $method;
 
     const PDO = "pdo", MYSQLI = "mysqli", MYSQL = "mysql";
 
+    private static $connections;
 
     public static function getInstance() {
         if (isset(self::$singleton)) {
@@ -46,9 +47,13 @@ class Database {
     public function createConnection($classname) {
         // Don't autoload the class. If this is a legit request, the class should already be loaded.
         if (class_exists($classname, false)) {
+            if (array_key_exists($classname, self::$connections)) {
+                // Let's not overdo it on the connections.
+                return self::$connections[$classname];
+            } else {
 
-            // return a new db connection.
-
+                return self::$connections[$classname] = new Connection($classname);
+            }
         } else {
             throw new IllegalArgumentException('To get a database connection, a classname must be supplied. This must be a valid loaded class.');
         }
