@@ -18,7 +18,9 @@ use Molly\library\exceptions\IllegalArgumentException;
 class FileLoader extends Loader {
 
     const FILE_READ_BUFFER = 64;
+
     private static $singleton;
+    private static $efl = array();
 
     public static function getInstance() {
         if (!isset($singleton)) {
@@ -62,8 +64,62 @@ class FileLoader extends Loader {
         return $file;
     }
 
-    public function locate($file) {
+    public function addExpectedFileLocation($efl) {
+        if (is_string($efl)) {
+            self::$efl[] = $efl;
+        } else {
+            throw new IllegalArgumentException("Expected a string as filelocation, got " . gettype($efl));
+        }
+    }
 
-        return "";
+    public function getExpectedFileLocations() {
+        return self::$efl;
+    }
+
+    public function locate($file) {
+        $efl = $this->getExpectedFileLocations();
+        $found = false;
+        foreach ($efl as $key => $location) {
+            if (is_dir($location)) {
+                if (($found = $this->search($file, $location)) !== false) {
+                    return $found;
+                } else{
+                    continue;
+                }
+            } else {
+                self::$efl[$key] = null;
+                unset(self::$efl[$key]);
+            }
+        }
+
+        if (!$found) {
+            throw new FileNotFoundException();
+        } else {
+            return $found;
+        }
+    }
+
+    private function search($file, $location) {
+        $dh = opendir($location);
+        while (($entry = readdir($dh)) !== false) {
+            if ($entry != "." && $entry != "..") {
+                if (!is_dir($entry)) {
+                    if ($entry === $file) {
+                        // Trim end of string so that only 1 slash remains.
+                        return rtrim($location, '/') . '/';
+                    } else {
+                        continue;
+                    }
+                } else {
+                    if (($found = $this->search($file, $entry)) !== false) {
+                        return rtrim($location, '/') . '/' . $found;
+                    } else {
+                        continue;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 }
