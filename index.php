@@ -7,5 +7,25 @@
  * Molly CMS - Written by Boris Wintein
  */
 
-echo "<pre>soon...</pre>";
+?>
+<html>
+    <head>
+        <title>Molly</title>
+    </head>
+    <body>
+        <div id="wrapper">
+            <div class="container">
+                <h2>Soon!</h2>
+                <p>Molly isn't ready yet.</p>
+                <div class="code">
+                    One ... more ... line ...
+                </div>
+            </div>
+        </div>
+    </body>
+
+</html>
+
+<?php
+
 die();
