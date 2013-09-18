@@ -19,18 +19,18 @@ class FileLoader extends Loader {
 
     const FILE_READ_BUFFER = 64;
 
-    private static $singleton;
-    private static $efl = array();
+    protected static $singleton;
+    protected static $efl = array();
 
     public static function getInstance() {
         if (!isset($singleton)) {
-            self::$singleton = new FileLoader();
+            self::$singleton = new static();
         }
 
         return self::$singleton;
     }
 
-    private function __construct() {}
+    protected function __construct() {}
 
     public function load($file) {
         try {
