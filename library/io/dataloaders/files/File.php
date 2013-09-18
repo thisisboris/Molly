@@ -8,7 +8,7 @@
  * Molly CMS - Written by Boris Wintein
  */
 
-namespace Molly\library\dataloaders\files;
+namespace Molly\library\io\dataloaders\files;
 use Molly\library\exceptions\IllegalArgumentException;
 
 class File {

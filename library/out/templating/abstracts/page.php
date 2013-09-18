@@ -6,7 +6,7 @@
  *
  * Molly CMS - Written by Boris Wintein
  */
-namespace Molly\library\out\template\abstracts;
+namespace Molly\library\out\templating\abstracts;
 abstract class Page {
 
 }

@@ -9,11 +9,11 @@
  */
 
 
-namespace Molly\library\io\database\interfaces;
+namespace Molly\library\io\dataloaders\database\interfaces;
 /**
  * Class Statement
  * This copies PDO-function to an extent.
- * @package Molly\library\io\database\interfaces
+ * @package Molly\library\io\dataloaders\database\interfaces
  */
 interface Statement {
     function bindColumn ($column , &$param);

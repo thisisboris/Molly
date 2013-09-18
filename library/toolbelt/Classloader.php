@@ -20,8 +20,8 @@ require_once(getcwd() . "/library/io/dataloaders/files/exceptions/FileNotFoundEx
 require_once(getcwd() . "/library/io/dataloaders/files/exceptions/ExpectedFileLocationsNotSetException.php");
 require_once(getcwd() . "/library/exceptions/IllegalArgumentException.php");
 
-use Molly\library\dataloaders\files\exceptions\FileNotFoundException;
-use Molly\library\dataloaders\files\FileLoader;
+use Molly\library\io\dataloaders\files\exceptions\FileNotFoundException;
+use Molly\library\io\dataloaders\files\FileLoader;
 
 class Classloader extends FileLoader {
 
@@ -42,11 +42,8 @@ class Classloader extends FileLoader {
                 // Unset "molly" it's not needed as a folder.
                 unset($ns[0]);
 
-                $guessed_location = "";
-                // Build porbable folder by inserting directory seperators between ns parts.
-                foreach ($ns as $key => $nspart) {
-                    $guessed_location .= $nspart . DIRECTORY_SEPARATOR;
-                }
+                // Glue this together with directory seperators.
+                $guessed_location = implode(DIRECTORY_SEPARATOR, $ns);
 
                 // Make it a file by adding .php
                 $guessed_location = rtrim($guessed_location, DIRECTORY_SEPARATOR) . ".php";

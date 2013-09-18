@@ -9,10 +9,12 @@
  */
 
 
-namespace Molly\library\dataloaders\files;
+namespace Molly\library\io\dataloaders\files;
 
-use Molly\library\dataloaders\files\exceptions\FileNotFoundException;
-use Molly\library\dataloaders\Loader;
+use Molly\library\io\dataloaders\files\exceptions\FileNotFoundException;
+use Molly\Library\io\dataloaders\files\exceptions\ExpectedFileLocationsNotSetException;
+use Molly\library\io\dataloaders\files\exceptions\NotAFolderException;
+use Molly\library\io\dataloaders\Loader;
 use Molly\library\exceptions\IllegalArgumentException;
 
 class FileLoader extends Loader {
@@ -78,13 +80,18 @@ class FileLoader extends Loader {
 
     public function locate($file) {
         $efl = $this->getExpectedFileLocations();
+
+        if (empty($efl)) {
+            throw new ExpectedFileLocationsNotSetException();
+        }
+
         $found = false;
         foreach ($efl as $key => $location) {
+            $location = getcwd() . $location;
+
             if (is_dir($location)) {
                 if (($found = $this->search($file, $location)) !== false) {
                     return $found;
-                } else{
-                    continue;
                 }
             } else {
                 self::$efl[$key] = null;
@@ -93,31 +100,31 @@ class FileLoader extends Loader {
         }
 
         if (!$found) {
-            throw new FileNotFoundException();
+            throw new FileNotFoundException("I was unable to locate the file " . $file . " in my expected locations");
         } else {
             return $found;
         }
     }
 
     private function search($file, $location) {
-        $dh = opendir($location);
-        while (($entry = readdir($dh)) !== false) {
-            if ($entry != "." && $entry != "..") {
-                if (!is_dir($entry)) {
-                    if ($entry === $file) {
-                        // Trim end of string so that only 1 slash remains.
-                        return rtrim($location, '/') . '/';
+        if (is_dir($location)) {
+            $dh = opendir($location);
+            while (($entry = readdir($dh)) !== false) {
+                if ($entry != "." && $entry != "..") {
+                    if (!is_dir($location . DIRECTORY_SEPARATOR . $entry)) {
+                        if ($entry === $file) {
+                            // Trim end of string so that only 1 slash remains.
+                            return rtrim($location, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+                        }
                     } else {
-                        continue;
-                    }
-                } else {
-                    if (($found = $this->search($file, $entry)) !== false) {
-                        return rtrim($location, '/') . '/' . $found;
-                    } else {
-                        continue;
+                        if (($found = $this->search($file, $location . DIRECTORY_SEPARATOR . $entry)) !== false) {
+                            return rtrim($found, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+                        }
                     }
                 }
             }
+        } else {
+            throw new NotAFolderException("Searching for files is only possible in folders. The given location '" . $location . "' is not a folder");
         }
 
         return false;

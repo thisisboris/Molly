@@ -11,9 +11,8 @@
 
 namespace Molly\library\io\database;
 
-
 use Molly\library\exceptions\IllegalArgumentException;
-use Molly\library\io\database\objects\Connection;
+use Molly\library\io\dataloaders\database\objects\Connection;
 
 class Database {
 

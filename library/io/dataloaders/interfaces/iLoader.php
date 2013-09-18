@@ -6,7 +6,7 @@
  *
  * Molly CMS - Written by Boris Wintein
  */
-namespace Molly\library\dataloaders\interfaces;
+namespace Molly\library\io\dataloaders\interfaces;
 
 interface Loader {
  	function load($identifier);

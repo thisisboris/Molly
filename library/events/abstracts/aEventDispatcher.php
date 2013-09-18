@@ -52,7 +52,7 @@ abstract class EventDispatcher implements iEventDispatcher
         $interfaces = class_implements($eventHandler);
         if (isset($interfaces['Molly\library\events\interfaces\EventHandler'])) {
             $temp = new mArray($this->registeredHandlers);
-            if ($temp->array_search($eventHandler) === false) {
+            if ($temp->search($eventHandler) === false) {
                 $this->registeredHandlers[$eventType][] = array('handler' => $eventHandler, 'added' => time(), 'classname' => "");
                 return true;
             }
@@ -68,7 +68,7 @@ abstract class EventDispatcher implements iEventDispatcher
         $interfaces = class_implements($eventHandler);
         if (isset($interfaces['Molly\library\events\interfaces\EventHandler'])) {
             $temp = new mArray($this->registeredHandlers);
-            if ($temp->array_search($eventHandler) !== false) {
+            if ($temp->search($eventHandler) !== false) {
                 $temp = array_keys($temp[$eventType]);
                 $handlerLocation = $temp[0];
                 unset($this->registeredHandlers[$eventType][$handlerLocation]);

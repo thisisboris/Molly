@@ -7,6 +7,12 @@
  * Molly CMS - Written by Boris Wintein
  */
 
+// Require our libary autoloader.
+require_once("library/toolbelt/Classloader.php");
+
+$testarr = array("Test", "test" , "testtest");
+$array = new \Molly\library\utils\MollyArray($testarr);
+
 ?>
 <html>
     <head>
@@ -19,6 +25,12 @@
                 <p>Molly isn't ready yet.</p>
                 <div class="code">
                     One ... more ... line ...
+                    <?php
+                        echo "<pre>";
+
+
+                        echo "</pre>";
+                    ?>
                 </div>
             </div>
         </div>

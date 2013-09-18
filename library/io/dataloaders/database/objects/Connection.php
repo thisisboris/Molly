@@ -9,7 +9,7 @@
  */
 
 
-namespace Molly\library\io\database\objects;
+namespace Molly\library\io\dataloaders\database\objects;
 
 class Connection {
     private $classname;

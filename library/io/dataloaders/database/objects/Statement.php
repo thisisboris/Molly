@@ -8,10 +8,10 @@
  * Molly CMS - Written by Boris Wintein
  */
 
-namespace Molly\library\io\database\objects;
+namespace Molly\library\io\dataloaders\database\objects;
 
 use Molly\library\exceptions\IllegalArgumentException;
-use Molly\library\io\database\interfaces\Statement as iStatement;
+use Molly\library\io\dataloaders\database\interfaces\Statement as iStatement;
 
 /**
  * Class Statement

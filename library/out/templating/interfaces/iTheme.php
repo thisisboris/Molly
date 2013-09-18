@@ -7,7 +7,7 @@
  * Molly CMS - Written by Boris Wintein
  */
 
-namespace Molly\library\out\template\interfaces;
+namespace Molly\library\out\templating\interfaces;
 
 interface Theme {
 	// THEME-RELATED METHODS

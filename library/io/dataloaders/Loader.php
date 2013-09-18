@@ -8,8 +8,8 @@
  * Molly CMS - Written by Boris Wintein
  */
 
-namespace Molly\library\dataloaders;
-use Molly\library\dataloaders\interfaces\Loader as iLoader;
+namespace Molly\library\io\dataloaders;
+use Molly\library\io\dataloaders\interfaces\Loader as iLoader;
 
 abstract class Loader implements iLoader {
 
