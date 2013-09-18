@@ -15,7 +15,7 @@ use Molly\library\events\interfaces\EventDispatcher as iEventDispatcher;
 
 use Molly\library\events\exceptions\InvalidEventHandlerException as HandlerException;
 use Molly\library\exceptions\IllegalArgumentException;
-use Molly\library\utils\MollyArray as mArray;
+use Molly\library\utils\collection\MollyArray as MollyArray;
 
 abstract class EventDispatcher implements iEventDispatcher
 {
@@ -51,7 +51,7 @@ abstract class EventDispatcher implements iEventDispatcher
     public function addEventListener($eventType, &$eventHandler) {
         $interfaces = class_implements($eventHandler);
         if (isset($interfaces['Molly\library\events\interfaces\EventHandler'])) {
-            $temp = new mArray($this->registeredHandlers);
+            $temp = new MollyArray($this->registeredHandlers);
             if ($temp->search($eventHandler) === false) {
                 $this->registeredHandlers[$eventType][] = array('handler' => $eventHandler, 'added' => time(), 'classname' => "");
                 return true;
@@ -67,7 +67,7 @@ abstract class EventDispatcher implements iEventDispatcher
     public function removeEventListener($eventType, &$eventHandler) {
         $interfaces = class_implements($eventHandler);
         if (isset($interfaces['Molly\library\events\interfaces\EventHandler'])) {
-            $temp = new mArray($this->registeredHandlers);
+            $temp = new MollyArray($this->registeredHandlers);
             if ($temp->search($eventHandler) !== false) {
                 $temp = array_keys($temp[$eventType]);
                 $handlerLocation = $temp[0];

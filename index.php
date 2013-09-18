@@ -11,7 +11,7 @@
 require_once("library/toolbelt/Classloader.php");
 
 $testarr = array("Test", "test" , "testtest");
-$array = new \Molly\library\utils\MollyArray($testarr);
+$array = new \Molly\library\utils\collection\MollyArray($testarr);
 
 ?>
 <html>

@@ -70,7 +70,8 @@ class Classloader extends FileLoader {
                     /*
                      * Wouldn't it be nice if we could do something like this here:
                      * use $location . $class_name as $class_name;
-                     * Then I wouldn't have to use the namespace loader above.
+                     *
+                     * Alas; dynamic use statements aren't implemented.
                      */
                     return include_once($location . $file_name);
                 }

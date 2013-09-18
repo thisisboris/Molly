@@ -7,7 +7,7 @@
  * Molly CMS - Written by Boris Wintein
  */
 
-namespace Molly\library\utils;
+namespace Molly\library\utils\collection;
 use Molly\library\exceptions\InvalidConstructorException as ConstructException;
 
 class MollyArray
@@ -29,11 +29,7 @@ class MollyArray
                 $tempArray = new MollyArray($value);
                 $arrayFind = $tempArray->search($needle);
 
-                if (!$arrayFind) {
-                    continue;
-                } else {
-                    return array($key => $arrayFind);
-                }
+                if ($arrayFind) return array($key => $arrayFind);
 
             } elseif ($value === $needle) {
                 return array ($key => $value);
