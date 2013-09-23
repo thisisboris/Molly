@@ -10,34 +10,10 @@
 // Require our libary autoloader.
 require_once("library/toolbelt/Classloader.php");
 
-$testarr = array("Test", "test" , "testtest");
-$array = new \Molly\library\utils\collection\MollyArray($testarr);
-
-?>
-<html>
-    <head>
-        <title>Molly</title>
-    </head>
-    <body>
-        <div id="wrapper">
-            <div class="container">
-                <h2>Soon!</h2>
-                <p>Molly isn't ready yet.</p>
-                <div class="code">
-                    One ... more ... line ...
-                    <?php
-                        echo "<pre>";
-
-
-                        echo "</pre>";
-                    ?>
-                </div>
-            </div>
-        </div>
-    </body>
-
-</html>
-
-<?php
-
-die();
+$template = &\Molly\library\out\templating\Theme::getInstance();
+$fileloader = \Molly\library\io\dataloaders\files\FileLoader::getInstance();
+$file = new \Molly\library\io\dataloaders\files\File("index.tpl");
+$file->setLocation("themes/default/frontend/");
+$template->setFile($file);
+$template->setFileloader($fileloader);
+$template->render();

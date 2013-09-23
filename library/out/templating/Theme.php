@@ -8,6 +8,8 @@
  */
 namespace Molly\library\out\templating;
 
+require_once(getcwd() . "/library/utils/html/simple_html_dom.php");
+
 use \Molly\library\io\dataloaders\files\FileLoader as FileLoader;
 use \Molly\library\io\dataloaders\files\File as File;
 
@@ -26,6 +28,8 @@ class Theme {
 
     private $template;
 
+    const HTML_ATTRIBUTE = "theme";
+
     public static function &getInstance() {
         if (!isset(self::$singleton)) {
             self::$singleton = new Theme();
@@ -34,7 +38,7 @@ class Theme {
     }
 
     private function __construct() {
-        require_once(getcwd() . "/library/utils/html/simple_html_dom.php");
+
     }
 
     public function setFile(File $file) {
@@ -64,7 +68,7 @@ class Theme {
         $vars = array(
             "logo" =>
                 array("attributes" => array("href" => "molly.thisisboris.be"),
-                    "website_name" => "Thisisboris.be"
+                    "website_name" => array("content" => "Thisisboris.be")
                 ),
             "navigation" =>
                 array(
@@ -76,35 +80,81 @@ class Theme {
                     )
                 )
         );
+
+        $this->template = $this->parseElement($this->template, null, $vars);
+        echo $this->template;
     }
 
-     private function parseElement(\DOMNode $node, $rootElement = null, $elementVariable = null) {
+     private function parseElement($node, $parentElement = null, $elementVariables = null) {
+         if ($node instanceof \simple_html_dom) {
+             foreach ($node->childNodes() as $childnode) {
+                 $nodeVariables = $elementVariables;
 
-         if ($node instanceof \DOMElement) {
-             echo "START DOMElement:" . $node->nodeName . "<br/>";
-
-             if ($node->hasAttribute("theme")) {
-                 echo "Node theme tag: " . $node->getAttribute("theme") . "<br/>";
-                 $themeAttribute = $node->getAttribute("theme");
-                 if (isset($elementVariable[$themeAttribute])) {
-                    if (is_array($elementVariable[$themeAttribute])) {
-
-                    } else if (is_string($elementVariable[$themeAttribute])) {
-
+                 if ($childnode->hasAttribute(self::HTML_ATTRIBUTE)) {
+                     $childNodeAttributeValue = $childnode->getAttribute(self::HTML_ATTRIBUTE);
+                    if (isset($elementVariables[$childNodeAttributeValue])) {
+                        $nodeVariables = array($childNodeAttributeValue => $elementVariables[$childNodeAttributeValue]);
                     }
                  }
 
-             } else {
-                 foreach($node->childNodes as $childnode) {
-                     $this->parseElement($childnode, $node, $elementVariable);
+                 $this->parseElement($childnode, $node, $nodeVariables);
+             }
+         } else if ($node instanceof \simple_html_dom_node) {
+             // Check if "theme"-attribute is set.
+             if ($node->hasAttribute("theme") && isset($elementVariables[$node->getAttribute(self::HTML_ATTRIBUTE)])) {
+
+                 $nodeAttributeValue = $node->getAttribute(self::HTML_ATTRIBUTE);
+                 $nodeVariable = $elementVariables[$nodeAttributeValue];
+
+                 if (is_array($nodeVariable)) {
+                     $node = $this->buildElementWithArray($node, $parentElement, $nodeVariable);
+                     $elementVariables = $nodeVariable;
+                 } else if (is_string($nodeVariable)) {
+                     $node = $this->buildElementWithString($node, $parentElement, $nodeVariable);
+                     $elementVariables = null;
                  }
+
+                 $node->removeAttribute(self::HTML_ATTRIBUTE);
              }
 
-             echo "STOP DOMElement:" . $node->nodeName . "<br/>";
-         } else if ($node instanceof \DOMText && !$node->isElementContentWhitespace()) {
-             echo "parsing DOMText:" . $node->nodeName . "<br/>";
+             foreach ($node->childNodes() as $childnode) {
+                 $nodeVariables = $elementVariables;
+
+                 if ($childnode->hasAttribute(self::HTML_ATTRIBUTE)) {
+                     $childNodeAttributeValue = $childnode->getAttribute(self::HTML_ATTRIBUTE);
+                     if (isset($elementVariables[$childNodeAttributeValue])) {
+                         $nodeVariables = array($childNodeAttributeValue => $elementVariables[$childNodeAttributeValue]);
+                     }
+                 }
+
+                 $this->parseElement($childnode, $node, $nodeVariables);
+             }
          }
 
          return $node;
      }
+
+    private function buildElementWithArray(\simple_html_dom_node $node, $parent, $nodeVariable) {
+        $temp = new MollyArray($nodeVariable);
+        if ($temp->is_assoc()) {
+            if (isset($nodeVariable['attributes']) && is_array($nodeVariable['attributes'])) {
+                foreach ($nodeVariable['attributes'] as $key => $value) {
+                    $node->setAttribute($key, $value);
+                }
+                unset($nodeVariable['attributes']);
+            }
+        } else {
+            // This node must repeated in the parent node.
+
+        }
+
+        return $node;
+    }
+
+    private function buildElementWithString(\simple_html_dom_node $node, \simple_html_dom_node $parent, $nodeVariable) {
+        $node->setAttribute("innertext", $nodeVariable);
+        return $node;
+    }
+
+
 }

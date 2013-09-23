@@ -24,7 +24,7 @@ class Buffer extends EventDispatcher {
 	/** Singleton Instance **/
 	private static $instance;
 
-	public static function getInstance() {
+	public static function &getInstance() {
 		if (!isset(self::$instance) || is_null(self::$instance)) self::$instance = new Buffer();
 		return self::$instance;
 	}

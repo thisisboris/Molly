@@ -113,4 +113,14 @@ class MollyArray
 
         return false;
     }
+
+    function is_assoc() {
+        $keys = array_keys($this->array);
+        foreach ($keys as $key) {
+            if (is_string($key)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }
