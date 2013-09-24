@@ -15,7 +15,7 @@ use Molly\library\io\dataloaders\database\interfaces\Statement as iStatement;
 
 /**
  * Class Statement
- * @package Molly\library\io\database\objects
+ * @package Molly\library\io\database\node
  *
  * By encapsuling a PDOstatement in our own class, we can effectively send events to trigger actions during our database interaction.
  */

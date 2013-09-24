@@ -14,7 +14,7 @@ use Molly\library\tracking\objects\Cookie;
 Class CookieFactory {
 	private static $singleton;
 
-    public static function getInstance() {
+    public static function &getInstance() {
         if (!isset(self::$singleton)) {
             self::$singleton = new CookieFactory();
         }

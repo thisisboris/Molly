@@ -35,23 +35,19 @@ class FileLoader extends Loader {
     protected function __construct() {}
 
     public function load($file) {
-        try {
-            if ($file instanceof File) {
-                if ( is_null($file->getLocation()) ) {
-                    $file->setLocation($this->locate($file->getFilename()));
-                } else if (!file_exists($file->getLocation() . $file->getFilename())) {
-                    $file->setLocation($this->locate($file->getFilename()));
-                }
-            } else if (is_string($file)) {
-                $file = new File($file);
-                $file->setLocation($this->locate($file->getFilename()));
 
-            } else {
-                throw new IllegalArgumentException("Expected String or File, got " . gettype($file) . " - " . get_class($file));
+        if ($file instanceof File) {
+            if ( is_null($file->getLocation()) ) {
+                $file->setLocation($this->locate($file->getFilename()));
+            } else if (!file_exists($file->getLocation() . $file->getFilename())) {
+                $file->setLocation($this->locate($file->getFilename()));
             }
-        } catch (FileNotFoundException $e) {
-            // File is nowhere to be found
-            return false;
+        } else if (is_string($file)) {
+            $file = new File($file);
+            $file->setLocation($this->locate($file->getFilename()));
+
+        } else {
+            throw new IllegalArgumentException("Expected String or File, got " . gettype($file) . " - " . get_class($file));
         }
 
         // Open the file, read everything, close the file.
