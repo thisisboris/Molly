@@ -14,10 +14,10 @@ namespace Molly\library\io\dataloaders\files;
 use Molly\library\io\dataloaders\files\exceptions\FileNotFoundException;
 use Molly\Library\io\dataloaders\files\exceptions\ExpectedFileLocationsNotSetException;
 use Molly\library\io\dataloaders\files\exceptions\NotAFolderException;
-use Molly\library\io\dataloaders\Loader;
+use Molly\library\io\dataloaders\Handler;
 use Molly\library\exceptions\IllegalArgumentException;
 
-class FileLoader extends Loader {
+class FileLoader extends Handler {
 
     const FILE_READ_BUFFER = 64;
 
@@ -60,6 +60,14 @@ class FileLoader extends Loader {
 
         $file->setContent($fileContents);
         return $file;
+    }
+
+    public function write($overwrite = true) {
+
+    }
+
+    public function append($data) {
+
     }
 
     public function addExpectedFileLocation($efl) {
