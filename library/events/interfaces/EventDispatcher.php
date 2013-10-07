@@ -9,6 +9,8 @@
 
 namespace Molly\library\events\interfaces;
 
+use \Molly\library\events\Event;
+
 interface EventDispatcher
 {
     /**
@@ -35,6 +37,6 @@ interface EventDispatcher
      * @param $event
      * @return void
      **/
-    function dispatchEvent(&$event);
+    function dispatchEvent(Event &$event);
 
 }

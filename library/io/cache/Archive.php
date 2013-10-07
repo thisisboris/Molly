@@ -12,11 +12,13 @@ namespace Molly\library\io\cache;
 use Molly\library\events\Event;
 use Molly\library\io\buffer\Buffer as Buffer;
 use Molly\library\events\interfaces\EventHandler as EventHandler;
+use Molly\library\exceptions\IllegalArgumentException;
 
-Class Archive implements EventHandler {	
-	/**
-	 * Singleton
-	 **/
+Class Archive implements EventHandler {
+    // Constants
+    const CACHE_LOCATION = "cache";
+
+    // Singleton
 	private static $instance;
 
 	public static function &getInstance() {
@@ -37,29 +39,25 @@ Class Archive implements EventHandler {
 		$this->scribe = new Scribe();
 		$this->scholar = new Scholar();
 
-		$this->buffer = Buffer::getInstance();
+		$this->buffer = &Buffer::getInstance();
 		$this->buffer->addEventListener(Buffer::BUFFER_REGISTERED, $this);
 		$this->buffer->addEventListener(Buffer::BUFFER_UNREGISTERED, $this);
 	}
 
 
-	public function handleEvent(&$event, $eventdata) {
-        if ($event instanceof Event) {
-            switch ($event->getEventType()) {
-                case Buffer::BUFFER_REGISTERED:
-                    if ($this->scholar->knows($eventdata)) {
-                        // Do an injection
-                        $data = $this->scholar->load($eventdata);
-                        $this->buffer->inject($eventdata['classname'], $eventdata['buffername'], $data);
-                    }
-                    break;
+	public function handleEvent(Event &$event, $eventdata) {
+        switch ($event->getEventType()) {
+            case Buffer::BUFFER_REGISTERED:
+                if ($this->scholar->knows($eventdata)) {
+                    // Do an injection
+                    $data = $this->scholar->load($eventdata);
+                    $this->buffer->inject($eventdata['classname'], $eventdata['buffername'], $data);
+                }
+                break;
 
-                case Buffer::BUFFER_UNREGISTERED:
-                    $this->scribe->write($eventdata);
-                    break;
-            }
-        } else {
-            throw new \InvalidArgumentException("Expected an event to handle of type event, got " . gettype($event) . " - " . get_class($event));
+            case Buffer::BUFFER_UNREGISTERED:
+                $this->scribe->createCache($event, $eventdata);
+                break;
         }
 	}
 }

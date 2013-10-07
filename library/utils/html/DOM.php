@@ -23,6 +23,7 @@ namespace Molly\library\utils\html;
  */
 use \Molly\library\utils\html\abstracts\SimpleDOMAbstract as SimpleDOMAbstract;
 use \Molly\library\io\dataloaders\files\File as File;
+use \Molly\library\io\dataloaders\files\FileLoader as FileLoader;
 
 class DOM extends SimpleDOMAbstract
 {
@@ -30,23 +31,28 @@ class DOM extends SimpleDOMAbstract
      * @var $rootnode
      * @description Contains the rootnode
      */
-    protected $rootNode;
+    public $rootNode;
 
-    function getRootTag() {
+    function &getRootNode() {
         return $this->rootNode;
     }
 
-    /**
-     * Saves the domdocument to a file.
-     * @param \Molly\library\io\dataloaders\files\File $file
-     */
-    function saveToFile(File $file) {
-        $file->setContent($this->_toString());
+    protected function setRootNode(DOMNode &$node) {
+        $this->rootNode = $node;
+    }
 
+    /**
+     * Writes the domdocument to a file.
+     * @param File $file
+     * @param FileLoader $writer
+     */
+    function saveToFile(File $file, FileLoader $writer) {
+        $file->setContent($this->_toString());
+        $writer->write($file, true);
     }
 
     function _toString() {
-        return '';
+        return "";
     }
 
 

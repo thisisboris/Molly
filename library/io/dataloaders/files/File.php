@@ -81,4 +81,11 @@ class File {
         return $this->location;
     }
 
+    /**
+     * @return string
+     */
+    public function getFilePath() {
+        return $this->getLocation() . $this->getFilename();
+    }
+
 }

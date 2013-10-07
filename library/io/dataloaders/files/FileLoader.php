@@ -11,31 +11,21 @@
 
 namespace Molly\library\io\dataloaders\files;
 
+use \Molly\library\io\dataloaders\abstracts\Loader;
 use Molly\library\io\dataloaders\files\exceptions\FileNotFoundException;
 use Molly\Library\io\dataloaders\files\exceptions\ExpectedFileLocationsNotSetException;
 use Molly\library\io\dataloaders\files\exceptions\NotAFolderException;
-use Molly\library\io\dataloaders\Handler;
 use Molly\library\exceptions\IllegalArgumentException;
 
-class FileLoader extends Handler {
+class FileLoader extends Loader {
 
     const FILE_READ_BUFFER = 64;
 
-    protected static $singleton;
     protected static $efl = array();
-
-    public static function getInstance() {
-        if (!isset($singleton)) {
-            self::$singleton = new static();
-        }
-
-        return self::$singleton;
-    }
 
     protected function __construct() {}
 
     public function load($file) {
-
         if ($file instanceof File) {
             if ( is_null($file->getLocation()) ) {
                 $file->setLocation($this->locate($file->getFilename()));
@@ -60,14 +50,6 @@ class FileLoader extends Handler {
 
         $file->setContent($fileContents);
         return $file;
-    }
-
-    public function write($overwrite = true) {
-
-    }
-
-    public function append($data) {
-
     }
 
     public function addExpectedFileLocation($efl) {

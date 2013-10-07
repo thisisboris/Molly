@@ -9,13 +9,19 @@
 
 namespace Molly\library\io\cache;
 
-Class Scribe {
+use \Molly\library\io\dataloaders\files\FileWriter;
+use \Molly\library\io\dataloaders\files\File;
 
-    public function __construct() {
+Class Scribe extends FileWriter {
 
+    public function createCache($identifier, $data) {
+        $file = new File($identifier . "-cache-" . time());
+        $file->setLocation(Archive::CACHE_LOCATION);
+
+        return $this->write($file, false);
     }
 
-    public function write($data) {
-
+    public function write($file, $overwrite = true) {
+        return false;
     }
 }

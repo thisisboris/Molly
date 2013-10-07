@@ -8,8 +8,9 @@
  */
 
 namespace Molly\library\events\exceptions;
-use Molly\library\exceptions\InvalidConstructorException as ConstructorException;
+use Molly\library\exceptions\InvalidConstructorException;
 
-class InvalidEventConstructException extends ConstructorException {
+class InvalidEventConstructException extends InvalidConstructorException
+{
 
 }

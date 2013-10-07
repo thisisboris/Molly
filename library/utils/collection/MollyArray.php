@@ -12,12 +12,12 @@ use Molly\library\exceptions\InvalidConstructorException as ConstructException;
 
 class MollyArray
 {
-    private $array;
+    public $array;
 
     function __construct(&$array)
     {
         if (is_array($array)) {
-            $this->array = $array;
+            $this->array = &$array;
         } else {
             throw new ConstructException();
         }

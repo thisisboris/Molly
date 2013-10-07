@@ -14,7 +14,7 @@ namespace Molly\library\toolbelt;
 // Basic requires to instantiate this class.
 
 require_once(getcwd() . "/library/io/dataloaders/interfaces/Loader.php");
-require_once(getcwd() . "/library/io/dataloaders/Handler.php");
+require_once(getcwd() . "/library/io/dataloaders/abstracts/Loader.php");
 require_once(getcwd() . "/library/io/dataloaders/files/FileLoader.php");
 require_once(getcwd() . "/library/io/dataloaders/files/exceptions/FileNotFoundException.php");
 require_once(getcwd() . "/library/io/dataloaders/files/exceptions/ExpectedFileLocationsNotSetException.php");
@@ -32,29 +32,12 @@ class Classloader extends FileLoader {
 
     public function autoload($class_name) {
         if (strpos($class_name, '\\') !== false) {
-
             // Namespaced classname
             $ns = explode('\\', $class_name);
 
             // Check if this is our own Molly-code
             if ($ns[0] == 'Molly') {
-
-                // Unset "molly" it's not needed as a folder.
-                unset($ns[0]);
-
-                // Glue this together with directory seperators.
-                $guessed_location = implode(DIRECTORY_SEPARATOR, $ns);
-
-                // Make it a file by adding .php
-                $guessed_location = rtrim($guessed_location, DIRECTORY_SEPARATOR) . ".php";
-
-                // Check if this is a real file
-                if (file_exists($guessed_location)) {
-                    return include_once($guessed_location);
-                } else {
-                    return false;
-                }
-
+                return $this->automollyload($class_name, $ns);
             } else {
                 // This is not something we'll be able to load.
                 return false;
@@ -80,6 +63,31 @@ class Classloader extends FileLoader {
                 return false;
             }
 
+            return false;
+        }
+    }
+
+    /**
+     * Autoloads Molly-library classes.
+     * @param $classname - Classname of the class that should be loaded, for debugging purposes as we use the classname
+     * defined by our namespace.
+     * @param $namespace - Full namespace.
+     * @return bool|mixed returns false on fail, or the inclusion.
+     */
+    private function automollyload($classname, $namespace) {
+        // Unset "molly" it's not needed as a folder.
+        unset($namespace[0]);
+
+        // Glue this together with directory seperators.
+        $guessed_location = implode(DIRECTORY_SEPARATOR, $namespace);
+
+        // Make it a file by adding .php
+        $guessed_location = rtrim($guessed_location, DIRECTORY_SEPARATOR) . ".php";
+
+        // Check if this is a real file
+        if (file_exists($guessed_location)) {
+            return include_once($guessed_location);
+        } else {
             return false;
         }
     }

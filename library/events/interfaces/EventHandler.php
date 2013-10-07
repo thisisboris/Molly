@@ -7,6 +7,7 @@
  * Molly CMS - Written by Boris Wintein
  */
 namespace Molly\library\events\interfaces;
+use \Molly\library\events\Event;
 
 interface EventHandler {
     /**
@@ -16,5 +17,5 @@ interface EventHandler {
      * @param $eventData
      * @return mixed
      */
-    function handleEvent(&$event, $eventData);
+    function handleEvent(Event &$event, $eventData);
 }

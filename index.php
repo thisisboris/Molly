@@ -10,8 +10,23 @@
 // Require our libary autoloader.
 require_once("library/toolbelt/Classloader.php");
 
+$array = array("test" => "test", "hello" => "world", "e" => "mc²");
+$mArray = new \Molly\library\utils\collection\MollyArray($array);
+
+$mArray->add("boris", "wintein");
+$mArray->remove("test", true);
+echo "<pre>";
+echo "MODIFIED MOLLY ARRAY::";
+print_r($mArray);
+
+echo "ORIGINAL ARRAY::";
+print_r($array);
+
+die();
+
 $template = &\Molly\library\out\templating\Theme::getInstance();
 $fileloader = \Molly\library\io\dataloaders\files\FileLoader::getInstance();
+
 $file = new \Molly\library\io\dataloaders\files\File("index.tpl");
 $file->setLocation("themes/default/frontend/");
 $template->setFile($file);

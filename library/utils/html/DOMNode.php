@@ -24,38 +24,181 @@ namespace Molly\library\utils\html;
  */
 
 use \Molly\library\utils\html\abstracts\SimpleDOMAbstract as SimpleDOMAbstract;
+use \Molly\library\exceptions\IllegalArgumentException as IllegalArgumentException;
 
 class DOMNode extends SimpleDOMAbstract
 {
+    protected $tag;
+    protected $attributes = array();
+    protected $selfClosing = false;
+
+    public function __construct(SimpleDOMAbstract $parent) {
+        $this->setParent($parent);
+    }
+
+    /**
+     * Alias for the toString method.
+     * @return string
+     */
+    function render() {
+        return $this->__toString();
+    }
+
+    /**
+     * The __toString() method recreates the node a html-string.
+     * @return string
+     */
+    function __toString() {
+        $returnvalue = '<';
+        $returnvalue .= $this->tag . " ";
+
+        foreach ($this->attributes as $identifier => $value) {
+            $returnvalue .= $identifier . '="';
+            if (is_array($value)) {
+                $returnvalue .= $value . " ";
+            } elseif (is_string($value)) {
+                $returnvalue .= $value;
+            } elseif (is_object($value)) {
+                $returnvalue .= $value->__toString();
+            }
+            $returnvalue .= '"';
+        }
+
+        /**
+         * @TODO Implement javascript actions the way they are implemented in Java's JSF/JSP/Expression Lang.
+         */
+
+        if (!$this->selfClosing) {
+            $returnvalue .= ">";
+
+            foreach ($this as $key => $child) {
+                if ($child instanceof DOMNode) {
+                    $returnvalue .= $child->__toString();
+                }
+            }
+
+            $returnvalue .= "</" . $this->tag . ">";
+
+        } else {
+            $returnvalue .=  "/>";
+        }
+
+        return $returnvalue;
+    }
+
+    function hasAttribute($attribute) {
+        if (is_string($attribute)) {
+            return isset($this->attributes[$attribute]) && !empty($this->attributes[$attribute]);
+        } else {
+            throw new IllegalArgumentException("Expected attribute to be a string, got " . gettype($attribute));
+        }
+    }
+
+    function getAttribute($attribute) {
+        if (is_string($attribute)) {
+            if ($this->hasAttribute($attribute)) {
+                return $this->attributes[$attribute];
+            } else {
+                return false;
+            }
+        } else {
+            throw new IllegalArgumentException("Expected attribute to be a string, got " . gettype($attribute));
+        }
+    }
+
+    function __set($name, $value) {
+        switch ($name) {
+            case 'outertext':
+                return $this->_[HDOM_INFO_OUTER] = $value;
+            case 'innertext':
+                if (isset($this->_[HDOM_INFO_TEXT])) {
+                    return $this->_[HDOM_INFO_TEXT] = $value;
+                } else {
+                    return $this->_[HDOM_INFO_INNER] = $value;
+                }
+            default:
+                return $this->setAttribute($name, $value);
+        }
+    }
+
+    function setAttribute($attribute, $value) {
+        if (is_string($attribute)) {
+            switch ($attribute) {
+                // @TODO experiment with stripping styles and declaring them in a css-document.
+                case 'style':
+                    $this->attributes['style'] = $value;
+                    return true;
+                break;
+
+                case 'class':
+                    if (!isset($this->attributes['class']) || empty($this->attributes['class'])) $this->attributes['class'] = array();
+
+                    if (is_array($value)) {
+                        $this->attributes['class'] = array_merge($this->attributes['class'], $value);
+                    } else {
+                        $this->attributes['class'][] = $value;
+                    }
+
+                    return true;
+                break;
+
+                default:
+                    $this->attributes[$attribute] = $value;
+                    return true;
+                break;
+            }
+        } else {
+            throw new IllegalArgumentException("Expected attribute to be a string, got " . gettype($attribute));
+        }
+    }
+
+    function getAllAttributes() {
+        return $this->attributes;
+    }
+
+    function removeAttribute($attribute) {
+        if (is_string($attribute)) {
+            unset($this->attributes[$attribute]);
+            return true;
+        } else {
+            throw new IllegalArgumentException("Expected attribute to be a string, got " . gettype($attribute));
+        }
+    }
+
+    function hasNodeID() {
+        return $this->hasAttribute("id");
+    }
+
+    function getNodeID() {
+        return $this->attributes['id'];
+    }
+
+    function hasNodeClasses() {
+        return isset($this->attributes['class']) && is_array($this->attributes['class']) && count($this->attributes['class']) > 0;
+    }
+
+    function getNodeClasses() {
+        return $this->attributes['class'];
+    }
+
+    function setNodeClasses($array)  {
+        if (is_array($array)) {
+
+        } else {
+            throw new IllegalArgumentException("");
+        }
+    }
+
     public $nodetype = HDOM_TYPE_TEXT;
-    public $tag = 'text';
-    public $attr = array();
-    public $children = array();
-    public $nodes = array();
-    public $parent = null;
+
     // The "info" array - see HDOM_INFO_... for what each element contains.
     public $_ = array();
     public $tag_start = 0;
     private $dom = null;
 
-    function __construct($dom)
-    {
-        $this->dom = $dom;
-        $dom->nodes[] = $this;
-    }
-
     function __destruct()
     {
         $this->clear();
-    }
-
-    function __toString()
-    {
-        return $this->outertext();
-    }
-
-    function getSelf() {
-        return $this;
     }
 
     // clean up memory due to php5 circular references memory leak...
@@ -625,20 +768,6 @@ class DOMNode extends SimpleDOMAbstract
         }
     }
 
-    function __set($name, $value) {
-        switch ($name) {
-            case 'outertext': return $this->_[HDOM_INFO_OUTER] = $value;
-            case 'innertext':
-                if (isset($this->_[HDOM_INFO_TEXT])) return $this->_[HDOM_INFO_TEXT] = $value;
-                return $this->_[HDOM_INFO_INNER] = $value;
-        }
-        if (!isset($this->attr[$name])) {
-            $this->_[HDOM_INFO_SPACE][] = array(' ', '', '');
-            $this->_[HDOM_INFO_QUOTE][] = HDOM_QUOTE_DOUBLE;
-        }
-        $this->attr[$name] = $value;
-    }
-
     function __isset($name) {
         switch ($name) {
             case 'outertext': return true;
@@ -833,11 +962,9 @@ class DOMNode extends SimpleDOMAbstract
     }
 
     // camel naming conventions
-    function getAllAttributes() {return $this->attr;}
-    function getAttribute($name) {return $this->__get($name);}
-    function setAttribute($name, $value) {$this->__set($name, $value);}
-    function hasAttribute($name) {return $this->__isset($name);}
-    function removeAttribute($name) {$this->__set($name, null);}
+
+
+
     function getElementById($id) {return $this->find("#$id", 0);}
     function getElementsById($id, $idx=null) {return $this->find("#$id", $idx);}
     function getElementByTagName($name) {return $this->find($name, 0);}

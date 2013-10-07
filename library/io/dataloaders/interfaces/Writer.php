@@ -10,6 +10,6 @@ namespace Molly\library\io\dataloaders\interfaces;
 
 interface Writer
 {
-    function write($overwrite = true);
-    function append($data);
+    function write(&$file, $overwrite = true);
+    function append(&$file, $data);
 }

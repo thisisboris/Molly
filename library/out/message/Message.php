@@ -40,6 +40,8 @@ class Message
     private function setLevel($level) {
         if (is_int($level) && ($level == self::INFORMATION || $level == self::WARNING || $level == self::ERROR)) {
             $this->level = $level;
+        } elseif (is_int($level)) {
+            throw new IllegalArgumentException("Tried setting level to an undefined int. Please use the class constants INFORMATION, WARNING or ERROR");
         } else {
             throw new IllegalArgumentException("Expected var level to be an int, got " . gettype($level) . " :: " . get_class($level));
         }
@@ -72,9 +74,10 @@ class Message
                 case self::ERROR:
                     return "error";
                 break;
+                default:
+                    return "message";
             }
-        } else {
-            return $this->level;
         }
+        return $this->level;
     }
 }

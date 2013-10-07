@@ -25,7 +25,7 @@ abstract class EventDispatcher implements iEventDispatcher
      */
     protected $registeredHandlers = array();
 
-    public function dispatchEvent(&$event)
+    public function dispatchEvent(Event &$event)
     {
         if ($event instanceof Event) {
             $type = $event->getEventType();
