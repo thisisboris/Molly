@@ -9,10 +9,10 @@
 
 namespace Molly\library\io\dataloaders\files;
 
-use \Molly\library\io\dataloaders\abstracts\Writer;
+use \Molly\library\io\dataloaders\abstracts\AbstractWriter;
 
 use \Molly\library\exceptions\IllegalArgumentException;
-class FileWriter extends Writer
+class FileWriter extends AbstractWriter
 {
 
     public function write(&$file, $overwrite = true) {

@@ -11,13 +11,13 @@
 
 namespace Molly\library\io\dataloaders\files;
 
-use \Molly\library\io\dataloaders\abstracts\Loader;
+use \Molly\library\io\dataloaders\abstracts\AbstractLoader;
 use Molly\library\io\dataloaders\files\exceptions\FileNotFoundException;
 use Molly\Library\io\dataloaders\files\exceptions\ExpectedFileLocationsNotSetException;
 use Molly\library\io\dataloaders\files\exceptions\NotAFolderException;
 use Molly\library\exceptions\IllegalArgumentException;
 
-class FileLoader extends Loader {
+class FileLoader extends AbstractLoader {
 
     const FILE_READ_BUFFER = 64;
 

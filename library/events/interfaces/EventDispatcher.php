@@ -29,7 +29,7 @@ interface EventDispatcher
      * @param $eventHandler
      * @return mixed
      */
-    function removeEventListener($eventType, &$eventHandler);
+    function removeEventListener($eventType, EventHandler &$eventHandler);
 
     /**
      * Function to actually launch the event.

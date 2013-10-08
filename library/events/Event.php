@@ -7,27 +7,10 @@
  * Molly CMS - Written by Boris Wintein
  */
 namespace Molly\library\events;
+use \Molly\library\events\abstracts\AbstractEvent;
 
-use Molly\library\events\interfaces\Event as iEvent;
-use Molly\library\exceptions\InvalidConstructorException as ConstructException;
-
-class Event implements iEvent
+class Event extends AbstractEvent
 {
-    private $name, $message, $target, $firedBy, $eventType, $extraData;
-
-    public function __construct($name, $message, $target, $firedBy, $eventType, $extraData = null) {
-        if (is_string($name) && is_string($message) && is_object($target) && is_object($firedBy) && is_string($eventType)) {
-            $this->name = $name;
-            $this->message = $message;
-            $this->target = $target;
-            $this->firedBy = $firedBy;
-            $this->eventType = $eventType;
-
-        } else {
-            throw new ConstructException("Name, Message, Target, FiredBy and EventType must be filled in and valid type");
-        }
-    }
-
     public final function getMessage() {
         return $this->message;
     }

@@ -12,18 +12,21 @@ namespace Molly\library\io\cache;
 use Molly\library\events\Event;
 use Molly\library\io\buffer\Buffer as Buffer;
 use Molly\library\events\interfaces\EventHandler as EventHandler;
-use Molly\library\exceptions\IllegalArgumentException;
 
-Class Archive implements EventHandler {
+use \Molly\library\io\dataloaders\abstracts\Handler;
+
+Class Archive extends Handler implements EventHandler {
     // Constants
     const CACHE_LOCATION = "cache";
 
     // Singleton
-	private static $instance;
+	public static $instance;
+
+
 
 	public static function &getInstance() {
 		if (!isset(self::$instance)) {
-			self::$instance = new Archive();
+			self::$instance = &new Archive();
 		} 
 
 		return self::$instance;
@@ -37,7 +40,7 @@ Class Archive implements EventHandler {
 
 	private function __construct() {
 		$this->scribe = new Scribe();
-		$this->scholar = new Scholar();
+		$this->scholar = new Scholar($this);
 
 		$this->buffer = &Buffer::getInstance();
 		$this->buffer->addEventListener(Buffer::BUFFER_REGISTERED, $this);
@@ -60,4 +63,94 @@ Class Archive implements EventHandler {
                 break;
         }
 	}
+
+    function load($identifier)
+    {
+        // Uses the Scholar to load an object
+        return $this->scholar->load($identifier);
+    }
+
+    function locate($identifier)
+    {
+        return $this->scholar->locate($identifier);
+    }
+
+    function write(&$file, $overwrite = true)
+    {
+        return $this->scribe->write($file, $overwrite);
+    }
+
+    function append(&$file, $data)
+    {
+        $this->scribe->append($file, $data);
+    }
+
+
+    function __destruct()
+    {
+        die("ondestruct");
+    }
+
+    function __call($name, $arguments)
+    {
+        echo "<pre>";
+        print_r($name);
+        echo "<br/>";
+        print_r($arguments);
+        die("__call");
+    }
+
+    public static function __callStatic($name, $arguments)
+    {
+        echo "<pre>";
+        print_r($name);
+        echo "<br/>";
+        print_r($arguments);
+        die("__callStatic");
+    }
+
+    function __get($name)
+    {
+        echo "<pre>";
+        print_r($name);
+        die("__get");
+    }
+
+    function __set($name, $value)
+    {
+        echo "<pre>";
+        print_r($name);
+        echo "<br/>";
+        print_r($value);
+        die("__set");
+    }
+
+    function __isset($name)
+    {
+        echo "<pre>";
+        print_r($name);
+        die("__isset");
+    }
+
+    function __unset($name)
+    {
+        echo "<pre>";
+        print_r($name);
+        die("__unset");
+    }
+
+    function __sleep()
+    {
+        die("__sleep");
+    }
+
+    function __wakeup()
+    {
+        die("__wakeup");
+    }
+
+    function __invoke()
+    {
+        die("__invoke");
+    }
 }

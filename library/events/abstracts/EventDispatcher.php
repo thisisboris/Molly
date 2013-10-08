@@ -11,13 +11,13 @@ namespace Molly\library\events\abstracts;
 
 // "Imports"
 use Molly\library\events\Event;
-use Molly\library\events\interfaces\EventDispatcher as iEventDispatcher;
-
-use Molly\library\events\exceptions\InvalidEventHandlerException as HandlerException;
+use Molly\library\events\interfaces\EventDispatcher;
+use Molly\library\events\interfaces\EventHandler;
+use Molly\library\events\exceptions\InvalidEventHandlerException;
 use Molly\library\exceptions\IllegalArgumentException;
 use Molly\library\utils\collection\MollyArray as MollyArray;
 
-abstract class EventDispatcher implements iEventDispatcher
+abstract class AbstractEventDispatcher implements EventDispatcher
 {
     /**
      * Multidimensional array containing all eventHandlers
@@ -58,13 +58,13 @@ abstract class EventDispatcher implements iEventDispatcher
             }
 
         } else {
-            throw new HandlerException("Class must implement EventHandler interface to be added to listener list.");
+            throw new InvalidEventHandlerException("Class must implement EventHandler interface to be added to listener list.");
         }
 
         return false;
     }
 
-    public function removeEventListener($eventType, &$eventHandler) {
+    public function removeEventListener($eventType, EventHandler &$eventHandler) {
         $interfaces = class_implements($eventHandler);
         if (isset($interfaces['Molly\library\events\interfaces\EventHandler'])) {
             $temp = new MollyArray($this->registeredHandlers);
@@ -75,7 +75,7 @@ abstract class EventDispatcher implements iEventDispatcher
                 return true;
             }
         } else {
-            throw new HandlerException("Class must implement EventHandler interface to be removed from the listener list.");
+            throw new InvalidEventHandlerException("Class must implement EventHandler interface to be removed from the listener list.");
         }
 
         return false;

@@ -14,7 +14,7 @@ namespace Molly\library\toolbelt;
 // Basic requires to instantiate this class.
 
 require_once(getcwd() . "/library/io/dataloaders/interfaces/Loader.php");
-require_once(getcwd() . "/library/io/dataloaders/abstracts/Loader.php");
+require_once(getcwd() . "/library/io/dataloaders/abstracts/AbstractLoader.php");
 require_once(getcwd() . "/library/io/dataloaders/files/FileLoader.php");
 require_once(getcwd() . "/library/io/dataloaders/files/exceptions/FileNotFoundException.php");
 require_once(getcwd() . "/library/io/dataloaders/files/exceptions/ExpectedFileLocationsNotSetException.php");

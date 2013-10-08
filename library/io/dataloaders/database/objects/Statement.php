@@ -11,7 +11,7 @@
 namespace Molly\library\io\dataloaders\database\objects;
 
 use Molly\library\exceptions\IllegalArgumentException;
-use Molly\library\io\dataloaders\database\interfaces\Statement as iStatement;
+use Molly\library\io\dataloaders\database\abstracts\AbstractStatement;
 
 /**
  * Class Statement
@@ -19,7 +19,7 @@ use Molly\library\io\dataloaders\database\interfaces\Statement as iStatement;
  *
  * By encapsuling a PDOstatement in our own class, we can effectively send events to trigger actions during our database interaction.
  */
-class Statement implements iStatement {
+class Statement extends AbstractStatement {
 
     private $statement;
 

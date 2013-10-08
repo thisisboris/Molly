@@ -8,11 +8,12 @@
  */
 
 namespace Molly\library\io\dataloaders\abstracts;
-use \Molly\library\io\dataloaders\interfaces\Loader as iLoader;
+use \Molly\library\io\dataloaders\interfaces\Writer;
 
-abstract class Loader implements iLoader
+abstract class AbstractWriter implements Writer
 {
     protected static $singleton;
+
     public static function getInstance() {
         if (!isset($singleton)) {
             self::$singleton = new static();

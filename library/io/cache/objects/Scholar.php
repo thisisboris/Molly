@@ -7,18 +7,17 @@
  * Molly CMS - Written by Boris Wintein
  */
 namespace Molly\library\io\cache;
+use \Molly\library\io\dataloaders\files\FileLoader;
 
-class Scholar {
+class Scholar extends FileLoader {
 
-    public function __construct() {
-
+    public function __construct(Archive $archive) {
+        $this->addExpectedFileLocation(Archive::CACHE_LOCATION);
     }
 
     public function knows($data) {
-        if ($data['something'] == "test") {
-            echo "coolios";
-        }
-        return true;
+
+        return $this->locate($data);
     }
 
     public function load($data) {

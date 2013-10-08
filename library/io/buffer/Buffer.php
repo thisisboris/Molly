@@ -9,8 +9,8 @@
  
 namespace Molly\library\io\buffer;
 
-use Molly\library\events\abstracts\EventDispatcher as EventDispatcher;
-use Molly\library\events\Event as Event;
+use Molly\library\events\EventDispatcher;
+use Molly\library\events\Event;
 
 use Molly\library\io\buffer\exceptions\BufferAlreadyRegisteredException;
 use Molly\library\io\buffer\exceptions\BufferNeverRegisteredException;
