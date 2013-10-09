@@ -31,9 +31,14 @@ class DOMNode extends SimpleDOMAbstract
     protected $tag;
     protected $attributes = array();
     protected $selfClosing = false;
+    protected $isRootnode = false;
 
     public function __construct(SimpleDOMAbstract $parent) {
-        $this->setParent($parent);
+        if ($parent instanceof DOM) {
+            $this->isRootnode = true;
+        } else {
+            $this->setParent($parent);
+        }
     }
 
     /**
@@ -153,6 +158,10 @@ class DOMNode extends SimpleDOMAbstract
     }
 
     function getAllAttributes() {
+        $return = $this->attributes;
+        if (isset($return['class'])) {
+            $return['class'] = implode(" ", $return['class']);
+        }
         return $this->attributes;
     }
 
@@ -558,7 +567,7 @@ class DOMNode extends SimpleDOMAbstract
                 $ret = array();
                 foreach ($head as $k=>$v)
                 {
-                    $n = ($k===-1) ? $this->dom->root : $this->dom->nodes[$k];
+                    $n = ($k===-1) ? $this->dom->getRootNode : $this->dom->nodes[$k];
                     //PaperG - Pass this optional parameter on to the seek function.
                     $n->seek($selectors[$c][$l], $ret, $lowercase);
                 }
@@ -764,7 +773,7 @@ class DOMNode extends SimpleDOMAbstract
             case 'innertext': return $this->innertext();
             case 'plaintext': return $this->text();
             case 'xmltext': return $this->xmltext();
-            default: return array_key_exists($name, $this->attr);
+            default: return array_key_exists($name, $this->getAllAttributes());
         }
     }
 

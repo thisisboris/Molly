@@ -55,6 +55,14 @@ class DOM extends SimpleDOMAbstract
         return "";
     }
 
+    function addLinkedNode(DOMNode &$node) {
+        return $this->getRootNode()->addLinkedNode($node);
+    }
+
+    function addChildNode(DOMNode &$node) {
+        return $this->getRootNode()->addChildNode($node);
+    }
+
 
     public $root = null;
     public $nodes = array();
@@ -225,7 +233,7 @@ class DOM extends SimpleDOMAbstract
     // Paperg - allow us to specify that we want case insensitive testing of the value of the selector.
     function find($selector, $idx=null, $lowercase=false)
     {
-        return $this->root->find($selector, $idx, $lowercase);
+        return $this->getRootNode()->find($selector, $idx, $lowercase);
     }
 
     // clean up memory due to php5 circular references memory leak...
@@ -272,11 +280,12 @@ class DOM extends SimpleDOMAbstract
         $this->lowercase = $lowercase;
         $this->default_br_text = $defaultBRText;
         $this->default_span_text = $defaultSpanText;
-        $this->root = new DOMNode($this);
-        $this->root->tag = 'root';
-        $this->root->_[HDOM_INFO_BEGIN] = -1;
-        $this->root->nodetype = HDOM_TYPE_ROOT;
-        $this->parent = $this->root;
+
+        $this->setRootNode(new DOMNode($this));
+        $this->getRootNode()->tag = 'root';
+        $this->getRootNode()->_[HDOM_INFO_BEGIN] = -1;
+        $this->getRootNode()->nodetype = HDOM_TYPE_ROOT;
+        $this->setParent($this->getRootNode());
         if ($this->size>0) $this->char = $this->doc[0];
     }
 
@@ -319,7 +328,7 @@ class DOM extends SimpleDOMAbstract
 
         if (empty($charset))
         {
-            $el = $this->root->find('meta[http-equiv=Content-Type]',0);
+            $el = $this->getRootNode()->find('meta[http-equiv=Content-Type]',0);
             if (!empty($el))
             {
                 $fullvalue = $el->content;
@@ -599,7 +608,8 @@ class DOM extends SimpleDOMAbstract
     {
         // Per sourceforge: http://sourceforge.net/tracker/?func=detail&aid=3061408&group_id=218559&atid=1044037
         // If the attribute is already defined inside a tag, only pay attention to the first one as opposed to the last one.
-        if (isset($node->attr[$name]))
+        $atr = $node->getAttribute($name);
+        if (isset($atr))
         {
             return;
         }
@@ -609,35 +619,37 @@ class DOM extends SimpleDOMAbstract
             case '"':
                 $node->_[HDOM_INFO_QUOTE][] = HDOM_QUOTE_DOUBLE;
                 $this->char = (++$this->pos<$this->size) ? $this->doc[$this->pos] : null; // next
-                $node->attr[$name] = $this->restore_noise($this->copy_until_char_escape('"'));
+                $node->setAttribute($name, $this->restore_noise($this->copy_until_char_escape('"')));
                 $this->char = (++$this->pos<$this->size) ? $this->doc[$this->pos] : null; // next
                 break;
             case '\'':
                 $node->_[HDOM_INFO_QUOTE][] = HDOM_QUOTE_SINGLE;
                 $this->char = (++$this->pos<$this->size) ? $this->doc[$this->pos] : null; // next
-                $node->attr[$name] = $this->restore_noise($this->copy_until_char_escape('\''));
+                $node->setAttribute($name, $this->restore_noise($this->copy_until_char_escape('\'')));
                 $this->char = (++$this->pos<$this->size) ? $this->doc[$this->pos] : null; // next
                 break;
             default:
                 $node->_[HDOM_INFO_QUOTE][] = HDOM_QUOTE_NO;
-                $node->attr[$name] = $this->restore_noise($this->copy_until($this->token_attr));
+                $node->setAttribute($name, $this->restore_noise($this->copy_until($this->token_attr)));
         }
         // PaperG: Attributes should not have \r or \n in them, that counts as html whitespace.
-        $node->attr[$name] = str_replace("\r", "", $node->attr[$name]);
-        $node->attr[$name] = str_replace("\n", "", $node->attr[$name]);
+        $node->setAttribute($name, str_replace("\r", "", $node->getAttribute($name)));
+        $node->setAttribute($name, str_replace("\n", "", $node->getAttribute($name)));
         // PaperG: If this is a "class" selector, lets get rid of the preceeding and trailing space since some people leave it in the multi class case.
         if ($name == "class") {
-            $node->attr[$name] = trim($node->attr[$name]);
+            $node->setAttribute($name, trim($node->getAttribute($name)));
         }
     }
 
     // link node's parent
-    protected function link_nodes(DOMNode &$node, $is_child)
-    {
-        $node->setParent($this->getParent());
-        $this->parent->nodes[] = $node;
-
-        if ($is_child) $this->getParent()->addChildNode($node);
+    protected function link_nodes(DOMNode &$node, $is_child)    {
+        if ($is_child) {
+            $node->setParent($this->getRootNode());
+            $this->addChildNode($node);
+        } else {
+            // We override this function so that it links the node  to the rootnode
+            $this->addLinkedNode($node);
+        }
         return $node;
     }
 
@@ -820,9 +832,9 @@ class DOM extends SimpleDOMAbstract
     }
 
     // camel naming conventions
-    function childNodes($idx=-1) {return $this->root->childNodes($idx);}
-    function firstChild() {return $this->root->first_child();}
-    function lastChild() {return $this->root->last_child();}
+    function childNodes($idx=-1) {return ($idx == -1 ? $this->getChildNodes() : $this->getChildNode($idx)); }
+    function firstChild() {return $this->getFirstChild();}
+    function lastChild() {return $this->getLastChild();}
 
     function createTextNode($value) {return @end(self::constructFromString($value)->nodes);}
     function getElementById($id) {return $this->find("#$id", 0);}
@@ -830,4 +842,44 @@ class DOM extends SimpleDOMAbstract
     function getElementByTagName($name) {return $this->find($name, 0);}
     function getElementsByTagName($name, $idx=-1) {return $this->find($name, $idx);}
     function loadFile() {$args = func_get_args();$this->load_file($args);}
+
+    function &getLinkedNodes()
+    {
+        return $this->getRootNode()->getLinkedNodes();
+    }
+
+    function removeLinkedNode(DOMNode &$node)
+    {
+        return $this->getRootNode()->removeLinkedNode($node);
+    }
+
+    function removeChildNode(DOMNode &$node)
+    {
+        return $this->getRootNode()->removeChildNode($node);
+    }
+
+    function hasChildNodes()
+    {
+        return $this->getRootNode()->hasChildNodes();
+    }
+
+    function &getChildNodes()
+    {
+        return $this->getRootNode()->getChildNodes();
+    }
+
+    function &getChildNode($id = -1)
+    {
+        return $this->getRootNode()->getChildNode($id);
+    }
+
+    function &getFirstChild()
+    {
+        return $this->getRootNode()->getFirstChild();
+    }
+
+    function &getLastChild()
+    {
+        return $this->getRootNode()->getLastChild();
+    }
 }
