@@ -3,8 +3,25 @@
 namespace Molly\library\utils\html;
 
 /**
- * I cleaned this class up and added a few methods that I found useful. All credit for the the parsing and main
- * methods goes to contributors listed below.
+ * @class DOMNode
+ * @author Boris Wintein - <hello@thisisboris.be>;
+ * @description
+ * This is a nice DOMNode class. It does everything you could want from a single node. Adding classes, removing classes,
+ * adding attributes, removing them. I fixed some issues (I think) and made this classes more programming friendly in
+ * general.
+ *
+ * I cleaned up these classes. Original allowed for incorrectly closed HTML-tags, I do not allow it. Forcing
+ * frontenders to write correct HTML both helps them and helps us in general. Don't allow for small mistakes,
+ * and they'll learn not to make them. These people are grown ups, they should deal with it.
+ *
+ * Other changes are the extra functions and possibility to easily loop through childnodes (since nodes
+ * implement the iterator-interface) and manipulate them. Overal these classes have been tweaked to work
+ * seamless with the templating engine provided by our library.
+ *
+ * All credit for the original parsing algorithm (which I slightly changed, so that it would work with the new
+ * structure) goes to the contributors listed below. I couldn't have written anything better, so I didn't
+ * reinvent the wheel. Just yet.
+
  *
  * Website: http://sourceforge.net/projects/simplehtmldom/
  * Acknowledge: Jose Solorzano (https://sourceforge.net/projects/php-html/)
@@ -72,6 +89,8 @@ class DOMNode extends AbstractDOMElement
      * Is this the original rootnode of the DOMClass.
      */
     protected $rootnode = false;
+
+    public $tag_start = 0;
 
     /**
      * @param DOM $domdocument
@@ -141,19 +160,47 @@ class DOMNode extends AbstractDOMElement
     }
 
     /**
+     * When a node is cloned (which can happen) this function is called by the interpreter. We must make sure
+     * that all children are clones, linked nodes are updated (this node should be added to their linked nodes)
+     * and the parent (if set) must be updated too.
+     */
+    function __clone() {
+        // Child nodes are references. So we need to clone each child, and overwrite their original reference with the
+        // new reference.
+        foreach ($this->getChildNodes() as $key => $node) {
+            if ($node instanceof DOMNode) {
+                $newnode = clone $node;
+
+                // Change the parent.
+                $newnode->setParent($this);
+
+                // So we simply override them with their clones.
+                $this->children[$key] = &$newnode;
+            }
+        }
+
+        // Update the linked nodes by adding this node as a new node to them.
+        foreach ($this->getLinkedNodes() as $node) {
+            if ($node instanceof DOMNode) {
+                $node->addLinkedNode($this);
+            }
+        }
+    }
+
+    /**
      * @return string
      * The __toString() method recreates the node a html-string.
      */
     function __toString() {
         $returnvalue = '<';
-        $returnvalue .= $this->tag . " ";
+        $returnvalue .= $this->tag;
 
         foreach ($this->attributes as $identifier => $value) {
-            $returnvalue .= $identifier . '="';
+            $returnvalue .= ' ' . $identifier . '="';
             if (is_array($value)) {
-                foreach ($value as $element) {
-                    $returnvalue .= $element . " ";
-                }
+                $temp = new MollyArray($value);
+                $returnvalue .= $temp->flatten();
+                unset($temp);
             } elseif (is_string($value)) {
                 $returnvalue .= $value;
             } elseif (is_object($value)) {
@@ -185,30 +232,78 @@ class DOMNode extends AbstractDOMElement
     }
 
     /**
-     * Destroy function.
-     * @see destroyNode();
+     * Alias for the toString method.
+     * @return string
+     * @see __toString();
      */
-    function __destruct() {
-        $this->destroyNode();
+    function render() {
+        return $this->__toString();
+    }
+
+    function __destroy() {
+        if (!is_null($this->children)) {
+            $this->destroyNode();
+        }
     }
 
     /**
      * Destroy the node completely, removes all references and cleans up memory.
      *
-     * @return bool
+     * @return DOMNode $this; (Unset it).
      */
     function destroyNode() {
+        // Remove all children.
+        foreach ($this->getChildNodes() as $node) {
+            if ($node instanceof DOMNode) {
+                $node->destroyNode();
+            }
+        }
 
-        return true;
+        // Remove all linked nodes.
+        foreach ($this->getLinkedNodes() as $node) {
+            if ($node instanceof DOMNode) {
+                $this->removeLinkedNode($node);
+                $node->destroyNode();
+            }
+        }
+
+        // Remove itself from the parent.
+        $this->getParent()->removeChildNode($this);
+
+        // Remove parent reference from this object.
+        $this->setParent(null);
+
+        // Remove reference to DOMDocument
+        $this->domdocument = null;
+
+        // Unset all attributes
+        $this->attributes = null;
+
+        // Unset all children
+        $this->children = null;
+
+        // Unset all linked nodes
+        $this->linkedNodes = null;
+
+        return $this;
     }
 
     /**
-     * Alias for the toString method.
-     * @return string
+     * @param null $specific
+     * @return array|mixed|bool
+     *
+     * Gets either the full info array or a specific value out of the info array. Returns false when the value isn't set.
      */
-    function render() {
-        return $this->__toString();
+    public function getInfo($specific = null) {
+        if (is_null($specific)) {
+            return $this->nodeInfo;
+        } else if (isset($this->nodeInfo[$specific])) {
+            return $this->nodeInfo[$specific];
+        } else {
+            return false;
+        }
     }
+
 
     /**
      * @param String $attribute
@@ -331,22 +426,48 @@ class DOMNode extends AbstractDOMElement
         }
     }
 
+    /**
+     * @return bool
+     * Checks whether the ID attribute is set.
+     */
     function hasNodeID() {
-        return $this->hasAttribute("id");
+        return $this->hasAttribute('id');
     }
 
+    /**
+     * @return bool|mixed
+     * Gets the value of the ID-attribute. False if it's not set.
+     */
     function getNodeID() {
-        return $this->attributes['id'];
+        if ($this->hasAttribute('id')) {
+            return $this->attributes['id'];
+        } else {
+            return false;
+        }
     }
 
+    /**
+     * @return bool
+     * Checks whether this node has any classes.
+     */
     function hasNodeClasses() {
         return isset($this->attributes['class']) && is_array($this->attributes['class']) && count($this->attributes['class']) > 0;
     }
 
+    /**
+     * @return array
+     * Gets an array of all classes.
+     */
     function getNodeClasses() {
         return $this->attributes['class'];
     }
 
+    /**
+     * @param $class string
+     * @throws \Molly\library\exceptions\IllegalArgumentException
+     *
+     * Adds a (string of) class(es) to this node.
+     */
     function addNodeClass($class) {
         if (is_string($class)) {
             $classes = explode(" ", $class);
@@ -357,10 +478,20 @@ class DOMNode extends AbstractDOMElement
 
     }
 
+    /**
+     * @return string
+     * Gets the class attribute as a string.
+     */
     function getNodeClass() {
         return implode(" ", $this->attributes["class"]);
     }
 
+    /**
+     * @param $array
+     * @throws \Molly\library\exceptions\IllegalArgumentException
+     *
+     * Sets the class to this array of classes. This function completely overwrites the previous classes.
+     */
     function setNodeClasses($array)  {
         if (is_array($array)) {
             $this->removeAttribute("class");
@@ -373,8 +504,6 @@ class DOMNode extends AbstractDOMElement
             throw new IllegalArgumentException($array, "Array");
         }
     }
-
-    public $tag_start = 0;
 
     /**
      * Dump this node's and it's childnodes tree.
@@ -406,7 +535,7 @@ class DOMNode extends AbstractDOMElement
 
 
     /**
-     * Debug of a single node.
+     * Dump of a single node.
      */
     function dump_node()
     {
@@ -456,167 +585,19 @@ class DOMNode extends AbstractDOMElement
         return $this->getParent()->getChildNode($this->getChildId() - 1);
     }
 
-    function innerHTML() {
-        if ($this->getInfo(HDOM_INFO_INNER) != null) return $this->getInfo(HDOM_INFO_INNER);
-        if ($this->getInfo(HDOM_INFO_TEXT) != null) return $this->getInfo(HDOM_INFO_TEXT);
-
-        if (isset($this->_[HDOM_INFO_INNER])) return $this->_[HDOM_INFO_INNER];
-        if (isset($this->_[HDOM_INFO_TEXT])) return $this->dom->restore_noise($this->_[HDOM_INFO_TEXT]);
-
-        $ret = '';
-        foreach ($this->nodes as $n)
-            $ret .= $n->outertext();
-        return $ret;
-    }
-
-    // get dom node's outer text (with tag)
-    function outertext()
-    {
-        global $debugObject;
-        if (is_object($debugObject))
-        {
-            $text = '';
-            if ($this->tag == 'text')
-            {
-                if (!empty($this->text))
-                {
-                    $text = " with text: " . $this->text;
-                }
-            }
-            $debugObject->debugLog(1, 'Innertext of tag: ' . $this->tag . $text);
-        }
-
-        if ($this->tag==='root') return $this->innertext();
-
-        // trigger callback
-        if ($this->dom && $this->dom->callback!==null)
-        {
-            call_user_func_array($this->dom->callback, array($this));
-        }
-
-        if (isset($this->_[HDOM_INFO_OUTER])) return $this->_[HDOM_INFO_OUTER];
-        if (isset($this->_[HDOM_INFO_TEXT])) return $this->dom->restore_noise($this->_[HDOM_INFO_TEXT]);
-
-        // render begin tag
-        if ($this->dom && $this->dom->nodes[$this->_[HDOM_INFO_BEGIN]])
-        {
-            $ret = $this->dom->nodes[$this->_[HDOM_INFO_BEGIN]]->makeup();
-        } else {
-            $ret = "";
-        }
-
-        // render inner text
-        if (isset($this->_[HDOM_INFO_INNER]))
-        {
-            // If it's a br tag...  don't return the HDOM_INNER_INFO that we may or may not have added.
-            if ($this->tag != "br")
-            {
-                $ret .= $this->_[HDOM_INFO_INNER];
-            }
-        } else {
-            if ($this->nodes)
-            {
-                foreach ($this->nodes as $n)
-                {
-                    $ret .= $this->convert_text($n->outertext());
-                }
-            }
-        }
-
-        // render end tag
-        if (isset($this->_[HDOM_INFO_END]) && $this->_[HDOM_INFO_END]!=0)
-            $ret .= '</'.$this->tag.'>';
-        return $ret;
-    }
-
-    // get dom node's plain text
-    function text()
-    {
-        if (isset($this->_[HDOM_INFO_INNER])) return $this->_[HDOM_INFO_INNER];
-        switch ($this->nodetype)
-        {
-            case HDOM_TYPE_TEXT: return $this->dom->restore_noise($this->_[HDOM_INFO_TEXT]);
-            case HDOM_TYPE_COMMENT: return '';
-            case HDOM_TYPE_UNKNOWN: return '';
-        }
-        if (strcasecmp($this->tag, 'script')===0) return '';
-        if (strcasecmp($this->tag, 'style')===0) return '';
-
-        $ret = '';
-        // In rare cases, (always node type 1 or HDOM_TYPE_ELEMENT - observed for some span tags, and some p tags) $this->nodes is set to NULL.
-        // NOTE: This indicates that there is a problem where it's set to NULL without a clear happening.
-        // WHY is this happening?
-        if (!is_null($this->nodes))
-        {
-            foreach ($this->nodes as $n)
-            {
-                $ret .= $this->convert_text($n->text());
-            }
-
-            // If this node is a span... add a space at the end of it so multiple spans don't run into each other.  This is plaintext after all.
-            if ($this->tag == "span")
-            {
-                $ret .= $this->dom->default_span_text;
-            }
 
 
-        }
-        return $ret;
-    }
-
-    function xmltext()
-    {
-        $ret = $this->innertext();
-        $ret = str_ireplace('<![CDATA[', '', $ret);
-        $ret = str_replace(']]>', '', $ret);
-        return $ret;
-    }
-
-    // build node's text with tag
-    function makeup()
-    {
-        // text, comment, unknown
-        if (isset($this->_[HDOM_INFO_TEXT])) return $this->dom->restore_noise($this->_[HDOM_INFO_TEXT]);
-
-        $ret = '<'.$this->tag;
-        $i = -1;
-
-        foreach ($this->attr as $key=>$val)
-        {
-            ++$i;
-
-            // skip removed attribute
-            if ($val===null || $val===false)
-                continue;
-
-            $ret .= $this->_[HDOM_INFO_SPACE][$i][0];
-            //no value attr: nowrap, checked selected...
-            if ($val===true)
-                $ret .= $key;
-            else {
-                switch ($this->_[HDOM_INFO_QUOTE][$i])
-                {
-                    case HDOM_QUOTE_DOUBLE: $quote = '"'; break;
-                    case HDOM_QUOTE_SINGLE: $quote = '\''; break;
-                    default: $quote = '';
-                }
-                $ret .= $key.$this->_[HDOM_INFO_SPACE][$i][1].'='.$this->_[HDOM_INFO_SPACE][$i][2].$quote.$val.$quote;
-            }
-        }
-        $ret = $this->dom->restore_noise($ret);
-        return $ret . $this->_[HDOM_INFO_ENDSPACE] . '>';
-    }
 
     // find elements by css selector
     //PaperG - added ability for find to lowercase the value of the selector.
-    function find($selector, $idx=null, $lowercase=false)
+    function find($selector, $idx = null, $lowercase = false)
     {
         $selectors = $this->parse_selector($selector);
-        if (($count=count($selectors))===0) return array();
+        if (($count=count($selectors)) === 0) return array();
         $found_keys = array();
 
         // find each selector
-        for ($c=0; $c<$count; ++$c)
+        for ($c = 0; $c < $count; ++$c)
         {
             // The change on the below line was documented on the sourceforge code tracker id 2788009
             // used to be: if (($levle=count($selectors[0]))===0) return array();
@@ -631,9 +612,10 @@ class DOMNode extends AbstractDOMElement
                 $ret = array();
                 foreach ($head as $k=>$v)
                 {
-                    $n = ($k===-1) ? $this->dom->getRootNode : $this->dom->nodes[$k];
-                    //PaperG - Pass this optional parameter on to the seek function.
-                    $n->seek($selectors[$c][$l], $ret, $lowercase);
+                    $node = ($k===-1) ? $this->domdocument->getRootNode() : $this->domdocument->getRootNode()->getChildNode($k);
+                    if ($node instanceof DOMNode) {
+                        $node->seek($selectors[$c][$l], $ret, $lowercase);
+                    }
                 }
                 $head = $ret;
             }
@@ -650,7 +632,7 @@ class DOMNode extends AbstractDOMElement
 
         $found = array();
         foreach ($found_keys as $k=>$v)
-            $found[] = $this->dom->nodes[$k];
+            $found[] = $this->domdocument->getRootNode()->getChildNodes($k);
 
         // return nth-element or array
         if (is_null($idx)) return $found;
@@ -660,11 +642,9 @@ class DOMNode extends AbstractDOMElement
 
     // seek for given conditions
     // PaperG - added parameter to allow for case insensitive testing of the value of a selector.
+    // @TODO check these functions to see what should be changed so that they still work.
     protected function seek($selector, &$ret, $lowercase=false)
     {
-        global $debugObject;
-        if (is_object($debugObject)) { $debugObject->debugLogEntry(1); }
-
         list($tag, $key, $val, $exp, $no_key) = $selector;
 
         // xpath index
@@ -724,7 +704,6 @@ class DOMNode extends AbstractDOMElement
                     // this is a normal search, we want the value of that attribute of the tag.
                     $nodeKeyValue = $node->attr[$key];
                 }
-                if (is_object($debugObject)) {$debugObject->debugLog(2, "testing node: " . $node->tag . " for attribute: " . $key . $exp . $val . " where nodes value is: " . $nodeKeyValue);}
 
                 //PaperG - If lowercase is set, do a case insensitive test of the value of the selector.
                 if ($lowercase) {
@@ -732,7 +711,6 @@ class DOMNode extends AbstractDOMElement
                 } else {
                     $check = $this->match($exp, $val, $nodeKeyValue);
                 }
-                if (is_object($debugObject)) {$debugObject->debugLog(2, "after match: " . ($check ? "true" : "false"));}
 
                 // handle multiple class
                 if (!$check && strcasecmp($key, 'class')===0) {
@@ -753,14 +731,9 @@ class DOMNode extends AbstractDOMElement
             if ($pass) $ret[$i] = 1;
             unset($node);
         }
-        // It's passed by reference so this is actually what this function returns.
-        if (is_object($debugObject)) {$debugObject->debugLog(1, "EXIT - ret: ", $ret);}
     }
 
     protected function match($exp, $pattern, $value) {
-        global $debugObject;
-        if (is_object($debugObject)) {$debugObject->debugLogEntry(1);}
-
         switch ($exp) {
             case '=':
                 return ($value===$pattern);
@@ -780,8 +753,6 @@ class DOMNode extends AbstractDOMElement
     }
 
     protected function parse_selector($selector_string) {
-        global $debugObject;
-        if (is_object($debugObject)) {$debugObject->debugLogEntry(1);}
 
         // pattern of CSS selectors, modified from mootools
         // Paperg: Add the colon to the attrbute, so that it properly finds <tag attr:ibute="something" > like google does.
@@ -792,7 +763,6 @@ class DOMNode extends AbstractDOMElement
         // $pattern = "/([\w-:\*]*)(?:\#([\w-]+)|\.([\w-]+))?(?:\[@?(!?[\w-]+)(?:([!*^$]?=)[\"']?(.*?)[\"']?)?\])?([\/, ]+)/is";
         $pattern = "/([\w-:\*]*)(?:\#([\w-]+)|\.([\w-]+))?(?:\[@?(!?[\w-:]+)(?:([!*^$]?=)[\"']?(.*?)[\"']?)?\])?([\/, ]+)/is";
         preg_match_all($pattern, trim($selector_string).' ', $matches, PREG_SET_ORDER);
-        if (is_object($debugObject)) {$debugObject->debugLog(2, "Matches Array: ", $matches);}
 
         $selectors = array();
         $result = array();
@@ -830,22 +800,16 @@ class DOMNode extends AbstractDOMElement
 
 
     // PaperG - Function to convert the text from one character set to another if the two sets are not the same.
-    function convert_text($text)
-    {
-        global $debugObject;
-        if (is_object($debugObject)) {$debugObject->debugLogEntry(1);}
-
+    function convert_text($text) {
         $converted_text = $text;
 
         $sourceCharset = "";
         $targetCharset = "";
 
-        if ($this->dom)
-        {
-            $sourceCharset = strtoupper($this->dom->_charset);
-            $targetCharset = strtoupper($this->dom->_target_charset);
+        if ($this->dom) {
+            $sourceCharset = strtoupper($this->domdocument->_charset);
+            $targetCharset = strtoupper($this->domdocument->_target_charset);
         }
-        if (is_object($debugObject)) {$debugObject->debugLog(3, "source charset: " . $sourceCharset . " target charaset: " . $targetCharset);}
 
         if (!empty($sourceCharset) && !empty($targetCharset) && (strcasecmp($sourceCharset, $targetCharset) != 0))
         {
@@ -911,117 +875,9 @@ class DOMNode extends AbstractDOMElement
         }
         return true;
     }
-    /*
-    function is_utf8($string)
-    {
-        //this is buggy
-        return (utf8_encode(utf8_decode($string)) == $string);
-    }
-    */
-
-    /**
-     * Function to try a few tricks to determine the displayed size of an img on the page.
-     * NOTE: This will ONLY work on an IMG tag. Returns FALSE on all other tag types.
-     *
-     * @author John Schlick
-     * @version April 19 2012
-     * @return array an array containing the 'height' and 'width' of the image on the page or -1 if we can't figure it out.
-     */
-    function get_display_size()
-    {
-        global $debugObject;
-
-        $width = -1;
-        $height = -1;
-
-        if ($this->tag !== 'img')
-        {
-            return false;
-        }
-
-        // See if there is aheight or width attribute in the tag itself.
-        if (isset($this->attr['width']))
-        {
-            $width = $this->attr['width'];
-        }
-
-        if (isset($this->attr['height']))
-        {
-            $height = $this->attr['height'];
-        }
-
-        // Now look for an inline style.
-        if (isset($this->attr['style']))
-        {
-            // Thanks to user gnarf from stackoverflow for this regular expression.
-            $attributes = array();
-            preg_match_all("/([\w-]+)\s*:\s*([^;]+)\s*;?/", $this->attr['style'], $matches, PREG_SET_ORDER);
-            foreach ($matches as $match) {
-                $attributes[$match[1]] = $match[2];
-            }
-
-            // If there is a width in the style attributes:
-            if (isset($attributes['width']) && $width == -1)
-            {
-                // check that the last two characters are px (pixels)
-                if (strtolower(substr($attributes['width'], -2)) == 'px')
-                {
-                    $proposed_width = substr($attributes['width'], 0, -2);
-                    // Now make sure that it's an integer and not something stupid.
-                    if (filter_var($proposed_width, FILTER_VALIDATE_INT))
-                    {
-                        $width = $proposed_width;
-                    }
-                }
-            }
-
-            // If there is a width in the style attributes:
-            if (isset($attributes['height']) && $height == -1)
-            {
-                // check that the last two characters are px (pixels)
-                if (strtolower(substr($attributes['height'], -2)) == 'px')
-                {
-                    $proposed_height = substr($attributes['height'], 0, -2);
-                    // Now make sure that it's an integer and not something stupid.
-                    if (filter_var($proposed_height, FILTER_VALIDATE_INT))
-                    {
-                        $height = $proposed_height;
-                    }
-                }
-            }
-
-        }
-
-        // Future enhancement:
-        // Look in the tag to see if there is a class or id specified that has a height or width attribute to it.
-
-        // Far future enhancement
-        // Look at all the parent tags of this image to see if they specify a class or id that has an img selector that specifies a height or width
-        // Note that in this case, the class or id will have the img subselector for it to apply to the image.
-
-        // ridiculously far future development
-        // If the class or id is specified in a SEPARATE css file thats not on the page, go get it and do what we were just doing for the ones on the page.
-
-        $result = array('height' => $height,
-            'width' => $width);
-        return $result;
-    }
-
-    // camel naming conventions
-
-
 
     function getElementById($id) {return $this->find("#$id", 0);}
-    function getElementsById($id, $idx=null) {return $this->find("#$id", $idx);}
+    function getElementsById($id, $idx = null) { return $this->find("#$id", $idx); }
     function getElementByTagName($name) {return $this->find($name, 0);}
     function getElementsByTagName($name, $idx=null) {return $this->find($name, $idx);}
-    function parentNode() {return $this->parent();}
-    function childNodes($idx=-1) {return $this->children($idx);}
-    function firstChild() {return $this->first_child();}
-    function lastChild() {return $this->last_child();}
-    function nextSibling() {return $this->next_sibling();}
-    function previousSibling() {return $this->prev_sibling();}
-    function hasChildNodes() {return $this->has_child();}
-    function nodeName() {return $this->tag;}
-    function appendChild($node) {$node->parent($this); return $node;}
 }
