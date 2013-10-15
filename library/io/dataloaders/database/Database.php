@@ -54,7 +54,7 @@ class Database {
                 return self::$connections[$classname] = new Connection($classname);
             }
         } else {
-            throw new IllegalArgumentException('To get a database connection, a classname must be supplied. This must be a valid loaded class.');
+            throw new IllegalArgumentException($classname, "String");
         }
     }
 

@@ -10,5 +10,7 @@ namespace Molly\library\exceptions;
 
 class IllegalArgumentException extends \Exception
 {
-
+    public function __construct($argument, $expected_class) {
+        parent::__construct("Expected instance of " . $expected_class . ", got " . gettype($argument));
+    }
 }

@@ -10,11 +10,12 @@ namespace Molly\library\utils\html\abstracts;
 
 use \Molly\library\exceptions\IllegalArgumentException;
 
-use \Molly\library\utils\html\interfaces\SimpleDOM;
+use \Molly\library\utils\html\interfaces\DOMElement;
+use  \Molly\library\utils\html\interfaces\DOMConstants;
 use \Molly\library\utils\html\DOMNode;
 use \Molly\library\utils\html\DOM;
 
-abstract class SimpleDOMAbstract implements SimpleDOM, \Iterator
+abstract class AbstractDOMElement implements DOMElement, \Iterator
 {
     /**
      * @var DOMNode $parent
@@ -56,7 +57,7 @@ abstract class SimpleDOMAbstract implements SimpleDOM, \Iterator
         if (is_int($id)) {
             $this->child_id = $id;
         } else {
-            throw new IllegalArgumentException("Id must be an int");
+            throw new IllegalArgumentException($id, "int");
         }
     }
 
@@ -107,11 +108,10 @@ abstract class SimpleDOMAbstract implements SimpleDOM, \Iterator
     /**
      * Creates a new element from a string.
      * @param $htmlstring
-     * @return bool|\Molly\library\utils\html\DOM
+     * @return bool|\Molly\library\utils\html\DOMNode
      */
     function createElementFromHTML($htmlstring) {
-        // Create a new HTML-element from string
-        return DOM::constructFromString($htmlstring)->root;
+        return DOM::constructFromString($htmlstring)->getRootNode();
     }
 
     /**

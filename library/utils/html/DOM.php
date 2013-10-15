@@ -2,8 +2,22 @@
 namespace Molly\library\utils\html;
 
 /**
- * I cleaned this class up and added a few methods that I found useful. All credit for the the parsing and main
- * methods goes to contributors listed below.
+ * @class DOM
+ * @author Boris Wintein - <hello@thisisboris.be>;
+ * @description
+ * This is the DOMDocument class containing the rootnode, and all information about the DOMDocument itself.
+ *
+ * I cleaned up these classes. Original allowed for incorrectly closed HTML-tags, I do not allow it. Forcing
+ * frontenders to write correct HTML both helps them and helps us in general. Don't allow for small mistakes,
+ * and they'll learn not to make them. These people are grown ups, they should deal with it.
+ *
+ * Other changes are the extra functions and possibility to easily loop through childnodes (since nodes
+ * implement the iterator-interface) and manipulate them. Overal these classes have been tweaked to work
+ * seamless with the templating engine provided by our library.
+ *
+ * All credit for the original parsing algorithm (which I slightly changed, so that it would work with the new
+ * structure) goes to the contributors listed below. I couldn't have written anything better, so I didn't
+ * reinvent the wheel. Just yet.
  *
  * Website: http://sourceforge.net/projects/simplehtmldom/
  * Acknowledge: Jose Solorzano (https://sourceforge.net/projects/php-html/)
@@ -21,62 +35,147 @@ namespace Molly\library\utils\html;
  * @version 1.5 ($Rev: 196 $)
  *
  */
-use \Molly\library\utils\html\abstracts\SimpleDOMAbstract as SimpleDOMAbstract;
-use \Molly\library\io\dataloaders\files\File as File;
-use \Molly\library\io\dataloaders\files\FileLoader as FileLoader;
 
-class DOM extends SimpleDOMAbstract
+use \Molly\library\utils\html\exceptions\HTMLStructureException;
+use  \Molly\library\utils\html\interfaces\DOMConstants;
+
+class DOM implements DOMConstants
 {
     /**
-     * @var $rootnode
-     * @description Contains the rootnode
+     * Creates DOM-document from file.
+     *
+     * @param $url
+     * @param bool $use_include_path
+     * @param null $context
+     * @param $offset
+     * @param $maxLen
+     * @param bool $lowercase
+     * @param bool $forceTagsClosed
+     * @param string $target_charset
+     * @param bool $stripRN
+     * @param string $defaultBRText
+     * @param string $defaultSpanText
+     * @return bool|DOM
      */
+    public static function constructFromFile($url, $use_include_path = false, $context=null, $offset = -1, $maxLen=-1, $lowercase = true, $forceTagsClosed=true, $target_charset = DEFAULT_TARGET_CHARSET, $stripRN = true, $defaultBRText = DEFAULT_BR_TEXT, $defaultSpanText = DEFAULT_SPAN_TEXT) {
+        // We DO force the tags to be terminated.
+        $dom = new DOM(null, $lowercase, $forceTagsClosed, $target_charset, $stripRN, $defaultBRText, $defaultSpanText);
+        $contents = file_get_contents($url, $use_include_path, $context, $offset);
+
+        if (empty($contents) || strlen($contents) > self::MAX_FILE_SIZE){
+            return false;
+        }
+
+        $dom->load($contents, $lowercase, $stripRN);
+        return $dom;
+    }
+
+    /**
+     * Creates DOMDocument from a string
+     *
+     * @param $str
+     * @param bool $lowercase
+     * @param bool $forceTagsClosed
+     * @param string $target_charset
+     * @param bool $stripRN
+     * @param string $defaultBRText
+     * @param string $defaultSpanText
+     * @return bool|DOM
+     */
+    public static function constructFromString($str, $lowercase=true, $forceTagsClosed=true, $target_charset = self::DEFAULT_TARGET_CHARSET, $stripRN=true, $defaultBRText=DEFAULT_BR_TEXT, $defaultSpanText=DEFAULT_SPAN_TEXT) {
+
+        $dom = new DOM(null, $lowercase, $forceTagsClosed, $target_charset, $stripRN, $defaultBRText, $defaultSpanText);
+        if (empty($str) || strlen($str) > self::MAX_FILE_SIZE)
+        {
+            $dom->clear();
+            return false;
+        }
+        $dom->load($str, $lowercase, $stripRN);
+        return $dom;
+    }
+
+    /**
+     * Dumps the HTML-tree of a node in a readable format.
+     *
+     * @param DOMNode $node
+     * @param bool $attributes
+     */
+    public static function dumpHTMLTree(DOMNode $node, $attributes = true) {
+        $node->dump($attributes);
+    }
+
+    // References
     public $rootNode;
 
+    // DOM-properties
+
+    /**
+     * @var $lowercase boolean
+     * Should all tags be coverted to lowercase or not?
+     * @note: Changed this from false to true, because I dislike uppercase tags. HTML doesn't yell.
+     */
+    protected $lowercase = true;
+
+    /**
+     * @var $rawHTML String
+     * Contains original HTML-string.
+     */
+    protected $rawHTML;
+
+    /**
+     * @var $size int
+     * Contains current size of the HTMLString. (Post parse)
+     */
+    protected $size;
+
+    /**
+     * @var $original_size int
+     * Contains original size of the HTMLString (Pre parse)
+     */
+    protected $original_size;
+
+    /**
+     * @var $cursor int
+     * Current location of the parsing.
+     */
+    protected $cursor;
+
+    function __construct($lowercase = true, $target_charset = DOM::DEFAULT_TARGET_CHARSET, $stripLineBreaks = true, $defaultBRText = DOM::DEFAULT_BR_TEXT, $defaultSpanText = DOM::DEFAULT_SPAN_TEXT)
+    {
+        // Set our parsing variables.
+        $this->lowercase = $lowercase;
+        $this->stripLineBreaks = $stripLineBreaks;
+        $this->targetCharset = $target_charset;
+        $this->defaultBR = $defaultBRText;
+        $this->defaultSpan = $defaultSpanText;
+    }
+
     function &getRootNode() {
-        return $this->rootNode;
+        if (is_null($this->rootNode)) {
+            throw new HTMLStructureException("Rootnode not set");
+        } else {
+            return $this->rootNode;
+        }
     }
 
     protected function setRootNode(DOMNode &$node) {
         $this->rootNode = $node;
     }
 
-    /**
-     * Writes the domdocument to a file.
-     * @param File $file
-     * @param FileLoader $writer
-     */
-    function saveToFile(File $file, FileLoader $writer) {
-        $file->setContent($this->_toString());
-        $writer->write($file, true);
-    }
-
     function _toString() {
         return "";
     }
 
-    function addLinkedNode(DOMNode &$node) {
-        return $this->getRootNode()->addLinkedNode($node);
+    protected function setContent($html) {
+        // Set initial size.
+        $this->size = $this->original_size = strlen($html);
+        $this->rawHTML = $html;
     }
 
-    function addChildNode(DOMNode &$node) {
-        return $this->getRootNode()->addChildNode($node);
-    }
-
-
-    public $root = null;
-    public $nodes = array();
-    public $callback = null;
-    public $lowercase = false;
-
-    // Used to keep track of how large the text was when we started.
-    public $original_size;
-    public $size;
     protected $pos;
     protected $doc;
     protected $char;
-    protected $cursor;
-    protected $parent;
+
     protected $noise = array();
     protected $token_blank = " \t\r\n";
     protected $token_equal = ' =/>';
@@ -86,75 +185,9 @@ class DOM extends SimpleDOMAbstract
     // Note that this is referenced by a child node, and so it needs to be public for that node to see this information.
     public $_charset = '';
     public $_target_charset = '';
-    protected $default_br_text = "";
-    public $default_span_text = "";
 
     protected $self_closing_tags = array('img'=>1, 'br'=>1, 'input'=>1, 'meta'=>1, 'link'=>1, 'hr'=>1, 'base'=>1, 'embed'=>1, 'spacer'=>1);
     protected $block_tags = array('root'=>1, 'body'=>1, 'form'=>1, 'div'=>1, 'span'=>1, 'table'=>1);
-
-    protected $optional_closing_tags = array(
-        'tr'=>array('tr'=>1, 'td'=>1, 'th'=>1),
-        'th'=>array('th'=>1),
-        'td'=>array('td'=>1),
-        'li'=>array('li'=>1),
-        'dt'=>array('dt'=>1, 'dd'=>1),
-        'dd'=>array('dd'=>1, 'dt'=>1),
-        'dl'=>array('dd'=>1, 'dt'=>1),
-        'p'=>array('p'=>1),
-        'nobr'=>array('nobr'=>1),
-        'b'=>array('b'=>1),
-        'option'=>array('option'=>1),
-    );
-
-    public static function constructFromFile($url, $use_include_path = false, $context=null, $offset = -1, $maxLen=-1, $lowercase = true, $forceTagsClosed=true, $target_charset = DEFAULT_TARGET_CHARSET, $stripRN = true, $defaultBRText = DEFAULT_BR_TEXT, $defaultSpanText = DEFAULT_SPAN_TEXT) {
-        // We DO force the tags to be terminated.
-        $dom = new DOM(null, $lowercase, $forceTagsClosed, $target_charset, $stripRN, $defaultBRText, $defaultSpanText);
-        $contents = file_get_contents($url, $use_include_path, $context, $offset);
-
-        if (empty($contents) || strlen($contents) > MAX_FILE_SIZE)        {
-            return false;
-        }
-
-        $dom->load($contents, $lowercase, $stripRN);
-        return $dom;
-    }
-
-    public static function constructFromString($str, $lowercase=true, $forceTagsClosed=true, $target_charset = DEFAULT_TARGET_CHARSET, $stripRN=true, $defaultBRText=DEFAULT_BR_TEXT, $defaultSpanText=DEFAULT_SPAN_TEXT) {
-
-        $dom = new DOM(null, $lowercase, $forceTagsClosed, $target_charset, $stripRN, $defaultBRText, $defaultSpanText);
-        if (empty($str) || strlen($str) > MAX_FILE_SIZE)
-        {
-            $dom->clear();
-            return false;
-        }
-        $dom->load($str, $lowercase, $stripRN);
-        return $dom;
-    }
-
-    public static function dump_html_tree($node, $show_attr=true, $deep=0)
-    {
-        $node->dump($node);
-    }
-
-    function __construct($str=null, $lowercase=true, $forceTagsClosed=true, $target_charset=DEFAULT_TARGET_CHARSET, $stripRN=true, $defaultBRText=DEFAULT_BR_TEXT, $defaultSpanText=DEFAULT_SPAN_TEXT)
-    {
-        if ($str)
-        {
-            if (preg_match("/^http:\/\//i",$str) || is_file($str))
-            {
-                $this->load_file($str);
-            }
-            else
-            {
-                $this->load($str, $lowercase, $stripRN, $defaultBRText, $defaultSpanText);
-            }
-        }
-        // Forcing tags to be closed implies that we don't trust the html, but it can lead to parsing errors if we SHOULD trust the html.
-        if (!$forceTagsClosed) {
-            $this->optional_closing_array=array();
-        }
-        $this->_target_charset = $target_charset;
-    }
 
     function __destruct()
     {
@@ -239,40 +272,49 @@ class DOM extends SimpleDOMAbstract
     // clean up memory due to php5 circular references memory leak...
     function clear()
     {
-        foreach ($this->nodes as $n) {$n->clear(); $n = null;}
-        // This add next line is documented in the sourceforge repository. 2977248 as a fix for ongoing memory leaks that occur even with the use of clear.
-        if (isset($this->children)) foreach ($this->children as $n) {$n->clear(); $n = null;}
-        if (isset($this->parent)) {$this->parent->clear(); unset($this->parent);}
-        if (isset($this->root)) {$this->root->clear(); unset($this->root);}
+        foreach ($this->getChildNodes() as $node) {
+            if ($node instanceof DOMNode) {
+                $node->clear();
+                $node = null;
+            }
+        }
+
+        foreach ($this->getLinkedNodes() as $node) {
+            if ($node instanceof DOMNode) {
+                $node->clear();
+                $node = null;
+            }
+        }
+
+        unset($this->rootNode);
         unset($this->doc);
         unset($this->noise);
     }
 
     function dump($show_attr=true)
     {
-        $this->root->dump($show_attr);
+        return $this->getRootNode()->dump($show_attr);
     }
 
     // prepare HTML data and init everything
-    protected function prepare($str, $lowercase=true, $stripRN=true, $defaultBRText=DEFAULT_BR_TEXT, $defaultSpanText=DEFAULT_SPAN_TEXT)
+    protected function prepare($rawHtml, $lowercase = true, $stripRN = true, $defaultBRText = DEFAULT_BR_TEXT, $defaultSpanText = DEFAULT_SPAN_TEXT)
     {
-        $this->clear();
+        if (isset($this->rootNode)) {
+            $this->clear();
+        }
 
-        // set the length of content before we do anything to it.
-        $this->size = strlen($str);
-        // Save the original size of the html that we got in.  It might be useful to someone.
-        $this->original_size = $this->size;
+        $this->setContent($rawHtml);
 
         //before we save the string as the doc...  strip out the \r \n's if we are told to.
         if ($stripRN) {
-            $str = str_replace("\r", " ", $str);
-            $str = str_replace("\n", " ", $str);
+            $str = str_replace("\r", " ", $rawHtml);
+            $str = str_replace("\n", " ", $rawHtml);
 
             // set the length of content since we have changed it.
-            $this->size = strlen($str);
+            $this->size = strlen($rawHtml);
         }
 
-        $this->doc = $str;
+        $this->doc = $rawHtml;
         $this->pos = 0;
         $this->cursor = 1;
         $this->noise = array();

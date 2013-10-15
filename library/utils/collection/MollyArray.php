@@ -123,4 +123,26 @@ class MollyArray
         }
         return false;
     }
+
+    function __toString() {
+        return $this->dumpArray($this->array);
+    }
+
+    private function dumpArray($array, $depth = 0) {
+        $string = str_repeat('   ', $depth);
+        foreach ($array as $key => $value) {
+            $string .= "[$key] => ";
+            if (is_array($value)) {
+                $string .= '(';
+                $string .= '\n';
+                $string .= $this->dumpArray($array, ++$depth);
+                $string .= '\n';
+                $string .= ')';
+            } else {
+                $string .= $value;
+                $string .= '\n';
+            }
+        }
+        return $string;
+    }
 }

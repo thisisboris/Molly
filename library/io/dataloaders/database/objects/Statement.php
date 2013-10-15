@@ -11,7 +11,9 @@
 namespace Molly\library\io\dataloaders\database\objects;
 
 use Molly\library\exceptions\IllegalArgumentException;
+use \Molly\library\exceptions\InvalidConstructorException;
 use Molly\library\io\dataloaders\database\abstracts\AbstractStatement;
+
 
 /**
  * Class Statement
@@ -27,7 +29,7 @@ class Statement extends AbstractStatement {
         if ($pdostatement instanceof \PDOStatement) {
             $this->statement = $pdostatement;
         } else {
-            throw new IllegalArgumentException("Constructor of statement needs a PDO statement as parameter");
+            throw new InvalidConstructorException(new IllegalArgumentException($pdostatement, "PDOStatement"));
         }
     }
 

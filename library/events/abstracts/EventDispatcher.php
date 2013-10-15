@@ -36,7 +36,7 @@ abstract class AbstractEventDispatcher implements EventDispatcher
                 }
             }
         } else {
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException($event, "Event");
         }
     }
 

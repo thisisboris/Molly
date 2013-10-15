@@ -23,35 +23,126 @@ namespace Molly\library\utils\html;
  *
  */
 
-use \Molly\library\utils\html\abstracts\SimpleDOMAbstract as SimpleDOMAbstract;
+use \Molly\library\utils\html\abstracts\AbstractDOMElement;
 use \Molly\library\exceptions\IllegalArgumentException as IllegalArgumentException;
 
-class DOMNode extends SimpleDOMAbstract
+use \Molly\library\utils\collection\MollyArray;
+
+class DOMNode extends AbstractDOMElement
 {
-    protected $tag;
-    protected $attributes = array();
-    protected $selfClosing = false;
-    protected $isRootnode = false;
-
-    public function __construct(SimpleDOMAbstract $parent) {
-        if ($parent instanceof DOM) {
-            $this->isRootnode = true;
-        } else {
-            $this->setParent($parent);
-        }
-    }
-
     /**
-     * Alias for the toString method.
-     * @return string
+     * @var DOM $domdocument;
+     * @description Reference to the original DOMDocument
      */
-    function render() {
-        return $this->__toString();
+    protected $domdocument;
+
+    /**
+     * @var String $tag
+     * The tag of this node
+     */
+    protected $tag;
+
+    /**
+     * @var array $attributes
+     * Contains all attributes that this node has
+     */
+    protected $attributes = array();
+
+    /**
+     * @var array $nodeinfo
+     * Contains extra nodeinfo that can be looked up using the constant defined in the interface DOMConstants.
+     * @see DOMConstants
+     */
+    protected $nodeInfo = array();
+
+    /**
+     * @var int $nodetype
+     * The type HTMLnode
+     */
+    protected $nodetype = DOM::HDOM_TYPE_TEXT;
+
+    /**
+     * @var bool $selfClosing
+     * Is this a selfclosing tag (like input, br, etc.)
+     */
+    protected $selfClosing = false;
+
+    /**
+     * @var bool $rootnode
+     * Is this the original rootnode of the DOMClass.
+     */
+    protected $rootnode = false;
+
+    /**
+     * @param DOM $domdocument
+     * @param null $parent
+     * Constructs this node. Every node needs a reference to the original DOM-class, to interact.
+     * If the $parent is optional, if the parent is null, the node will act as a rootnode.
+     */
+    public function __construct(DOM &$domdocument, $parent = null) {
+        if (is_null($parent)) $this->rootnode = true;
+        $this->domdocument = $domdocument;
     }
 
     /**
-     * The __toString() method recreates the node a html-string.
+     * Following all __functions relate to attributes to this node. To set specific settings, or get nodes you should
+     * always use the functions that were written for these parameters.
+     *
+     * @param $name
+     * @param $value
+     * @return bool
+     *
+     * Set a node attribute to a certain value. True when succesful, false otherwise.
+     */
+    function __set($name, $value) {
+        return $this->setAttribute($name, $value);
+    }
+
+    /**
+     * @param $name
+     * @return bool
+     *
+     * Gets the value of the attribute specified by $name. False if not set.
+     * @see _set();
+     */
+    function __get($name) {
+        return $this->getAttribute($name);
+    }
+
+    /**
+     * @param $name
+     * @return bool
+     *
+     * Checks whether a certain attribute is set.
+     * @see _set();
+     */
+    function __isset($name) {
+        return $this->hasAttribute($name);
+        /*
+        switch ($name) {
+            case 'outertext': return isset($this->_[DOM::HDOM_INFO_OUTER]);
+            case 'innertext': return true;
+            case 'plaintext': return true;
+            default:
+                return $this->hasAttribute($name);
+            break;
+        }*/
+    }
+
+    /**
+     * @param $name
+     * @return bool
+     *
+     * Removes a certain attribute.
+     * @see _set();
+     */
+    function __unset($name) {
+        return $this->removeAttribute($name);
+    }
+
+    /**
      * @return string
+     * The __toString() method recreates the node a html-string.
      */
     function __toString() {
         $returnvalue = '<';
@@ -60,7 +151,9 @@ class DOMNode extends SimpleDOMAbstract
         foreach ($this->attributes as $identifier => $value) {
             $returnvalue .= $identifier . '="';
             if (is_array($value)) {
-                $returnvalue .= $value . " ";
+                foreach ($value as $element) {
+                    $returnvalue .= $element . " ";
+                }
             } elseif (is_string($value)) {
                 $returnvalue .= $value;
             } elseif (is_object($value)) {
@@ -76,7 +169,7 @@ class DOMNode extends SimpleDOMAbstract
         if (!$this->selfClosing) {
             $returnvalue .= ">";
 
-            foreach ($this as $key => $child) {
+            foreach ($this as $child) {
                 if ($child instanceof DOMNode) {
                     $returnvalue .= $child->__toString();
                 }
@@ -91,45 +184,86 @@ class DOMNode extends SimpleDOMAbstract
         return $returnvalue;
     }
 
+    /**
+     * Destroy function.
+     * @see destroyNode();
+     */
+    function __destruct() {
+        $this->destroyNode();
+    }
+
+    /**
+     * Destroy the node completely, removes all references and cleans up memory.
+     *
+     * @return bool
+     */
+    function destroyNode() {
+
+        return true;
+    }
+
+    /**
+     * Alias for the toString method.
+     * @return string
+     */
+    function render() {
+        return $this->__toString();
+    }
+
+    /**
+     * @param String $attribute
+     * @return bool
+     * @throws \Molly\library\exceptions\IllegalArgumentException
+     *
+     * Checks whether this node has a certain attribute defined by the string $attribut
+     */
     function hasAttribute($attribute) {
         if (is_string($attribute)) {
             return isset($this->attributes[$attribute]) && !empty($this->attributes[$attribute]);
         } else {
-            throw new IllegalArgumentException("Expected attribute to be a string, got " . gettype($attribute));
+            throw new IllegalArgumentException($attribute, "String");
         }
     }
 
+    /**
+     * @param $attribute
+     * @return bool|mixed
+     * @throws \Molly\library\exceptions\IllegalArgumentException
+     *
+     * If this node has a certain attribute, defined by the string $attribute, this returns the value of that attribute.
+     */
     function getAttribute($attribute) {
         if (is_string($attribute)) {
             if ($this->hasAttribute($attribute)) {
-                return $this->attributes[$attribute];
+                if ($attribute == 'class') {
+                    return implode(' ', $this->attributes['class']);
+                } else {
+                    return $this->attributes[$attribute];
+                }
             } else {
                 return false;
             }
         } else {
-            throw new IllegalArgumentException("Expected attribute to be a string, got " . gettype($attribute));
+            throw new IllegalArgumentException($attribute, "String");
         }
     }
 
-    function __set($name, $value) {
-        switch ($name) {
-            case 'outertext':
-                return $this->_[HDOM_INFO_OUTER] = $value;
-            case 'innertext':
-                if (isset($this->_[HDOM_INFO_TEXT])) {
-                    return $this->_[HDOM_INFO_TEXT] = $value;
-                } else {
-                    return $this->_[HDOM_INFO_INNER] = $value;
-                }
-            default:
-                return $this->setAttribute($name, $value);
-        }
-    }
-
+    /**
+     * @param $attribute
+     * @param $value
+     * @return bool
+     * @throws \Molly\library\exceptions\IllegalArgumentException
+     *
+     * Sets the value of a certain attribute defined by the string $attribute to the value $value.
+     *
+     * @TODO: Implementing the stripping of styles (when something is added to the style tag) and the stripping of
+     * @TODO: javascript functions. By defining a strict css-relation, we could use jQuery to replace the javascript
+     * @TODO: and put it in the head tag. Cleaning up HTML drastically. This however, is just an idea. I have yet to
+     * @TODO: check what the actual implementation would be, and how it could be done. (And if it's possible at all)
+     */
     function setAttribute($attribute, $value) {
         if (is_string($attribute)) {
             switch ($attribute) {
-                // @TODO experiment with stripping styles and declaring them in a css-document.
                 case 'style':
                     $this->attributes['style'] = $value;
                     return true;
@@ -140,12 +274,16 @@ class DOMNode extends SimpleDOMAbstract
 
                     if (is_array($value)) {
                         $this->attributes['class'] = array_merge($this->attributes['class'], $value);
-                    } else {
+                    } else if (is_string($value)) {
                         $this->attributes['class'][] = $value;
+                    } else {
+                        throw new IllegalArgumentException($value, "String|Array - When setting a class, always use a string or array");
                     }
 
                     return true;
                 break;
+
+                // @TODO check importance of the innertext/outertext/plaintext vars, and if they should be implemented here.
 
                 default:
                     $this->attributes[$attribute] = $value;
@@ -153,24 +291,43 @@ class DOMNode extends SimpleDOMAbstract
                 break;
             }
         } else {
-            throw new IllegalArgumentException("Expected attribute to be a string, got " . gettype($attribute));
+            throw new IllegalArgumentException($attribute, "String");
         }
     }
 
-    function getAllAttributes() {
+    /**
+     * @return bool
+     * Checks whether this nodes has any attributes at all.
+     */
+    function hasAttributes() {
+        return isset($this->attributes) && !empty($this->attributes);
+    }
+
+    /**
+     * @return array
+     * Returns all the attributes. While classes are stored internally as an array, this returns them as a string.
+     */
+    function getAttributes() {
         $return = $this->attributes;
         if (isset($return['class'])) {
             $return['class'] = implode(" ", $return['class']);
         }
-        return $this->attributes;
+        return $return;
     }
 
+    /**
+     * @param $attribute
+     * @return bool
+     * @throws \Molly\library\exceptions\IllegalArgumentException
+     *
+     * Removes a certain attribute defined bu the string $attribute.
+     */
     function removeAttribute($attribute) {
         if (is_string($attribute)) {
             unset($this->attributes[$attribute]);
             return true;
         } else {
-            throw new IllegalArgumentException("Expected attribute to be a string, got " . gettype($attribute));
+            throw new IllegalArgumentException($attribute, "String");
         }
     }
 
@@ -190,212 +347,119 @@ class DOMNode extends SimpleDOMAbstract
         return $this->attributes['class'];
     }
 
+    function addNodeClass($class) {
+        if (is_string($class)) {
+            $classes = explode(" ", $class);
+            $this->setAttribute('class', $classes);
+        } else {
+            throw new IllegalArgumentException($class, "String");
+        }
+
+    }
+
+    function getNodeClass() {
+        return implode(" ", $this->attributes["class"]);
+    }
+
     function setNodeClasses($array)  {
         if (is_array($array)) {
-
+            $this->removeAttribute("class");
+            foreach ($array as $value) {
+                if (is_string($value)) {
+                    $this->setAttribute("class", $value);
+                }
+            }
         } else {
-            throw new IllegalArgumentException("");
+            throw new IllegalArgumentException($array, "Array");
         }
     }
 
-    public $nodetype = HDOM_TYPE_TEXT;
-
-    // The "info" array - see HDOM_INFO_... for what each element contains.
-    public $_ = array();
     public $tag_start = 0;
-    private $dom = null;
 
-    function __destruct()
+    /**
+     * Dump this node's and it's childnodes tree.
+     *
+     * @param bool $show_attributes
+     * @param int $depth
+     */
+    function dump($show_attributes = true, $depth = 0)
     {
-        $this->clear();
-    }
+        $lead = str_repeat('    ', $depth);
 
-    // clean up memory due to php5 circular references memory leak...
-    function clear()
-    {
-        $this->dom = null;
-        $this->nodes = null;
-        $this->parent = null;
-        $this->children = null;
-    }
-
-    // dump node's tree
-    function dump($show_attr=true, $deep=0)
-    {
-        $lead = str_repeat('    ', $deep);
-
-        echo $lead.$this->tag;
-        if ($show_attr && count($this->attr)>0)
-        {
-            echo '(';
-            foreach ($this->attr as $k=>$v)
-                echo "[$k]=>\"".$this->$k.'", ';
-            echo ')';
+        echo $lead . $this->tag;
+        if ($show_attributes && $this->hasAttributes()){
+            echo 'Attributes:  ';
+            foreach ($this->getAttributes() as $attribute => $value) {
+                echo "[$attribute] =>\"". $value .'", ';
+            }
         }
         echo "\n";
 
-        if ($this->nodes)
-        {
-            foreach ($this->nodes as $c)
-            {
-                $c->dump($show_attr, $deep+1);
+        if ($this->hasChildNodes()) {
+            foreach ($this->getChildNodes() as $childNode) {
+                if ($childNode instanceof DOMNode) {
+                    $childNode->dump($show_attributes, ++$depth);
+                }
             }
         }
     }
 
 
-    // Debugging function to dump a single dom node with a bunch of information about it.
-    function dump_node($echo=true)
+    /**
+     * Debug of a single node.
+     */
+    function dump_node()
     {
-        $string = $this->tag;
-        if (count($this->attr)>0)
-        {
-            $string .= '(';
-            foreach ($this->attr as $k=>$v)
-            {
-                $string .= "[$k]=>\"".$this->$k.'", ';
+        echo $this->tag;
+        if ($this->hasAttributes()){
+            echo 'Attributes:  ';
+            foreach ($this->getAttributes() as $attribute => $value) {
+                echo "[$attribute] =>\"". $value .'", ';
             }
-            $string .= ')';
         }
-        if (count($this->_)>0)
+        echo "\n";
+
+        if (count($this->nodeInfo) > 0)
         {
-            $string .= ' $_ (';
-            foreach ($this->_ as $k=>$v)
-            {
-                if (is_array($v))
-                {
-                    $string .= "[$k]=>(";
-                    foreach ($v as $k2=>$v2)
-                    {
-                        $string .= "[$k2]=>\"".$v2.'", ';
-                    }
-                    $string .= ")";
-                } else {
-                    $string .= "[$k]=>\"".$v.'", ';
-                }
-            }
-            $string .= ")";
+            $array = new MollyArray($this->nodeInfo);
+            echo 'Nodeinfo (';
+            echo $array;
+            echo ')';
         }
 
         if (isset($this->text))
         {
-            $string .= " text: (" . $this->text . ")";
+            echo " text: (" . $this->text . ")";
         }
 
-        $string .= " HDOM_INNER_INFO: '";
-        if (isset($this->_[HDOM_INFO_INNER]))
-        {
-            $string .= $this->_[HDOM_INFO_INNER] . "'";
-        }
-        else
-        {
-            $string .= ' NULL ';
-        }
-
-        $string .= " children: " . count($this->children);
-        $string .= " nodes: " . count($this->nodes);
-        $string .= " tag_start: " . $this->tag_start;
-        $string .= "\n";
-
-        if ($echo)
-        {
-            echo $string;
-            return;
-        }
-        else
-        {
-            return $string;
-        }
+        echo " children: " . count($this->getChildNodes());
+        echo " nodes: " . count($this->getLinkedNodes());
+        echo " tag_start: " . $this->tag_start;
+        echo "\n";
     }
 
-    // returns the parent of node
-    // If a node is passed in, it will reset the parent of the current node to that one.
-    function parent($parent=null)
+    /**
+     * @return DOMNode|bool
+     * Returns a reference to the next sibling node, by getting it from the parentreference.
+     */
+    function &getNextSibling()
     {
-        // I am SURE that this doesn't work properly.
-        // It fails to unset the current node from it's current parents nodes or children list first.
-        if ($parent !== null)
-        {
-            $this->parent = $parent;
-            $this->parent->nodes[] = $this;
-            $this->parent->children[] = $this;
-        }
-
-        return $this->parent;
+        return $this->getParent()->getChildNode($this->getChildId() + 1);
     }
 
-    function next_sibling()
+    /**
+     * @return DOMNode|bool
+     * Returns a reference to the previous sibling node, by getting it from the parentreference.
+     */
+    function &getPreviousSibling()
     {
-        if ($this->getParent() == null) {
-            return null;
-        } else {
-            if (isset($this->child_id) && $this->getParent()->getChildNode($this->child_id) === $this) {
-                $parentChildCount = count($this->getParent()->getChildNodes());
-                $currentId = $this->child_id;
-                while ($currentId < $parentChildCount) {
-                    $child = $this->getParent()->getChildNode($currentId);
-                    if (!is_int($child) && !is_bool($child) && $child instanceof DOMNode) {
-                        return $this->getParent()->getChildNode($currentId);
-                    }
-                    $currentId++;
-                }
-
-                return null;
-            } else {
-                return null;
-            }
-        }
+        return $this->getParent()->getChildNode($this->getChildId() - 1);
     }
 
-    // returns the previous sibling of node
-    function prev_sibling()
-    {
-        if ($this->getParent() === null) {
-            return null;
-        } else {
-            if (isset($this->child_id) && $this->getParent()->getChildNode($this->child_id) === $this) {
+    function innerHTML() {
+        if ($this->getInfo(HDOM_INFO_INNER) != null) return $this->getInfo(HDOM_INFO_INNER);
+        if ($this->getInfo(HDOM_INFO_TEXT) != null) return $this->getInfo(HDOM_INFO_TEXT);
 
-                $currentId = $this->child_id;
-                while ($currentId > 0) {
-                    $child = $this->getParent()->getChildNode($currentId);
-                    if (!is_int($child) && !is_bool($child) && $child instanceof DOMNode) {
-                        return $this->getParent()->getChildNode($currentId);
-                    }
-                    $currentId--;
-                }
-
-                return null;
-            } else {
-                return null;
-            }
-        }
-    }
-
-    // function to locate a specific ancestor tag in the path to the root.
-    function find_ancestor_tag($tag)
-    {
-        global $debugObject;
-        if (is_object($debugObject)) { $debugObject->debugLogEntry(1); }
-
-        // Start by including ourselves in the comparison.
-        $returnDom = $this;
-
-        while (!is_null($returnDom))
-        {
-            if (is_object($debugObject)) { $debugObject->debugLog(2, "Current tag is: " . $returnDom->tag); }
-
-            if ($returnDom->tag == $tag)
-            {
-                break;
-            }
-            $returnDom = $returnDom->parent;
-        }
-        return $returnDom;
-    }
-
-    // get dom node's inner html
-    function innertext()
-    {
         if (isset($this->_[HDOM_INFO_INNER])) return $this->_[HDOM_INFO_INNER];
         if (isset($this->_[HDOM_INFO_TEXT])) return $this->dom->restore_noise($this->_[HDOM_INFO_TEXT]);
 
@@ -763,34 +827,7 @@ class DOMNode extends SimpleDOMAbstract
         return $selectors;
     }
 
-    function __get($name) {
-        if (isset($this->attr[$name]))
-        {
-            return $this->convert_text($this->attr[$name]);
-        }
-        switch ($name) {
-            case 'outertext': return $this->outertext();
-            case 'innertext': return $this->innertext();
-            case 'plaintext': return $this->text();
-            case 'xmltext': return $this->xmltext();
-            default: return array_key_exists($name, $this->getAllAttributes());
-        }
-    }
 
-    function __isset($name) {
-        switch ($name) {
-            case 'outertext': return true;
-            case 'innertext': return true;
-            case 'plaintext': return true;
-        }
-        //no value attr: nowrap, checked selected...
-        return (array_key_exists($name, $this->attr)) ? true : isset($this->attr[$name]);
-    }
-
-    function __unset($name) {
-        if (isset($this->attr[$name]))
-            unset($this->attr[$name]);
-    }
 
     // PaperG - Function to convert the text from one character set to another if the two sets are not the same.
     function convert_text($text)
