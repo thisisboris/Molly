@@ -11,9 +11,9 @@ namespace Molly\library\utils\html\abstracts;
 use \Molly\library\exceptions\IllegalArgumentException;
 
 use \Molly\library\utils\html\interfaces\DOMElement;
-use  \Molly\library\utils\html\interfaces\DOMConstants;
+
 use \Molly\library\utils\html\DOMNode;
-use \Molly\library\utils\html\DOM;
+use \Molly\library\utils\html\DOMFactory;
 
 abstract class AbstractDOMElement implements DOMElement, \Iterator
 {
@@ -77,7 +77,7 @@ abstract class AbstractDOMElement implements DOMElement, \Iterator
      * @return mixed
      */
     function createElement($tag, $contents) {
-        return DOM::constructFromString("<$tag>$contents</$tag>")->getFirstChild();
+        return DOMFactory::constructFromString("<$tag>$contents</$tag>")->getFirstChild();
     }
 
     /**
@@ -111,7 +111,7 @@ abstract class AbstractDOMElement implements DOMElement, \Iterator
      * @return bool|\Molly\library\utils\html\DOMNode
      */
     function createElementFromHTML($htmlstring) {
-        return DOM::constructFromString($htmlstring)->getRootNode();
+        return DOMFactory::constructFromString($htmlstring)->getRootNode();
     }
 
     /**

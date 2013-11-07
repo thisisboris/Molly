@@ -9,6 +9,6 @@
 namespace Molly\library\io\dataloaders\interfaces;
 
 interface Loader {
- 	function load($identifier);
- 	function locate($identifier);
+ 	function load(&$identifier);
+ 	function locate(&$identifier);
 }

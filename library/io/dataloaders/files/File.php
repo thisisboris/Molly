@@ -33,7 +33,7 @@ class File {
         if (is_string($content)) {
             $this->content = $content;
         } else {
-            throw new IllegalArgumentException("Wrong filecontents, expected string, got " . gettype($content) . " - " . get_class($content));
+            throw new IllegalArgumentException($content, "String");
         }
     }
 

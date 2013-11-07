@@ -1,6 +1,6 @@
 <?php
 /**
- * Handler.php
+ * AbstractHandler.php
  * This file is part of Molly, an open-source content manager.
  *
  * This application is licensed under the Apache License, found in LICENSE.TXT
@@ -13,7 +13,7 @@ use Molly\library\io\dataloaders\interfaces\Loader;
 use Molly\library\io\dataloaders\interfaces\Writer;
 
 
-abstract class Handler implements Loader, Writer {
+abstract class AbstractHandler implements Loader, Writer {
     protected static $singleton;
     public static function getInstance() {
         if (!isset($singleton)) {

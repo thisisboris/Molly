@@ -304,6 +304,10 @@ class DOMNode extends AbstractDOMElement
         }
     }
 
+    public function addInfo($key, $value) {
+        $this->nodeInfo[$key] = $value;
+    }
+
 
     /**
      * @param String $attribute
@@ -503,6 +507,22 @@ class DOMNode extends AbstractDOMElement
         } else {
             throw new IllegalArgumentException($array, "Array");
         }
+    }
+
+    public function setNodeType($type) {
+        $this->nodetype = $type;
+    }
+
+    public function getNodeType() {
+        return $this->nodetype;
+    }
+
+    public function setTag($tag) {
+        $this->tag = $tag;
+    }
+
+    public function getTag() {
+        return $this->tag;
     }
 
     /**

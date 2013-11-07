@@ -25,7 +25,7 @@ class FileLoader extends AbstractLoader {
 
     protected function __construct() {}
 
-    public function load($file) {
+    public function load(&$file) {
         if ($file instanceof File) {
             if ( is_null($file->getLocation()) ) {
                 $file->setLocation($this->locate($file->getFilename()));
@@ -37,7 +37,7 @@ class FileLoader extends AbstractLoader {
             $file->setLocation($this->locate($file->getFilename()));
 
         } else {
-            throw new IllegalArgumentException("Expected String or File, got " . gettype($file) . " - " . get_class($file));
+            throw new IllegalArgumentException($file, "String or File");
         }
 
         // Open the file, read everything, close the file.
@@ -56,7 +56,7 @@ class FileLoader extends AbstractLoader {
         if (is_string($efl)) {
             self::$efl[] = $efl;
         } else {
-            throw new IllegalArgumentException("Expected a string as filelocation, got " . gettype($efl));
+            throw new IllegalArgumentException($efl, "String");
         }
     }
 
@@ -64,7 +64,7 @@ class FileLoader extends AbstractLoader {
         return self::$efl;
     }
 
-    public function locate($file) {
+    public function locate(&$file) {
         $efl = $this->getExpectedFileLocations();
 
         if (empty($efl)) {

@@ -37,77 +37,28 @@ namespace Molly\library\utils\html;
  */
 
 use \Molly\library\utils\html\exceptions\HTMLStructureException;
-use  \Molly\library\utils\html\interfaces\DOMConstants;
+use \Molly\library\utils\html\interfaces\DOMConstants;
+use \Molly\library\utils\html\interfaces\DOMElement;
 
-class DOM implements DOMConstants
+use \Molly\library\io\dataloaders\files\File;
+use \Molly\library\io\dataloaders\files\FileWriter;
+
+use \Molly\library\exceptions\InvalidConstructorException;
+
+class DOM extends FileWriter implements DOMConstants, DOMElement
 {
     /**
-     * Creates DOM-document from file.
-     *
-     * @param $url
-     * @param bool $use_include_path
-     * @param null $context
-     * @param $offset
-     * @param $maxLen
-     * @param bool $lowercase
-     * @param bool $forceTagsClosed
-     * @param string $target_charset
-     * @param bool $stripRN
-     * @param string $defaultBRText
-     * @param string $defaultSpanText
-     * @return bool|DOM
+     * @var File $file.
+     * This contains the file-object we're parsing. This is used so we can easily save, load, cache or do whatever with
+     * the parsed content on disk.
      */
-    public static function constructFromFile($url, $use_include_path = false, $context=null, $offset = -1, $maxLen=-1, $lowercase = true, $forceTagsClosed=true, $target_charset = DEFAULT_TARGET_CHARSET, $stripRN = true, $defaultBRText = DEFAULT_BR_TEXT, $defaultSpanText = DEFAULT_SPAN_TEXT) {
-        // We DO force the tags to be terminated.
-        $dom = new DOM(null, $lowercase, $forceTagsClosed, $target_charset, $stripRN, $defaultBRText, $defaultSpanText);
-        $contents = file_get_contents($url, $use_include_path, $context, $offset);
-
-        if (empty($contents) || strlen($contents) > self::MAX_FILE_SIZE){
-            return false;
-        }
-
-        $dom->load($contents, $lowercase, $stripRN);
-        return $dom;
-    }
+    private $file;
 
     /**
-     * Creates DOMDocument from a string
-     *
-     * @param $str
-     * @param bool $lowercase
-     * @param bool $forceTagsClosed
-     * @param string $target_charset
-     * @param bool $stripRN
-     * @param string $defaultBRText
-     * @param string $defaultSpanText
-     * @return bool|DOM
+     * @var DOMNode
+     * Contains the rootnode for this domdocument. Childnodes reference this.
      */
-    public static function constructFromString($str, $lowercase=true, $forceTagsClosed=true, $target_charset = self::DEFAULT_TARGET_CHARSET, $stripRN=true, $defaultBRText=DEFAULT_BR_TEXT, $defaultSpanText=DEFAULT_SPAN_TEXT) {
-
-        $dom = new DOM(null, $lowercase, $forceTagsClosed, $target_charset, $stripRN, $defaultBRText, $defaultSpanText);
-        if (empty($str) || strlen($str) > self::MAX_FILE_SIZE)
-        {
-            $dom->clear();
-            return false;
-        }
-        $dom->load($str, $lowercase, $stripRN);
-        return $dom;
-    }
-
-    /**
-     * Dumps the HTML-tree of a node in a readable format.
-     *
-     * @param DOMNode $node
-     * @param bool $attributes
-     */
-    public static function dumpHTMLTree(DOMNode $node, $attributes = true) {
-        $node->dump($attributes);
-    }
-
-    // References
     public $rootNode;
-
-    // DOM-properties
 
     /**
      * @var $lowercase boolean
@@ -140,36 +91,217 @@ class DOM implements DOMConstants
      */
     protected $cursor;
 
-    function __construct($lowercase = true, $target_charset = DOM::DEFAULT_TARGET_CHARSET, $stripLineBreaks = true, $defaultBRText = DOM::DEFAULT_BR_TEXT, $defaultSpanText = DOM::DEFAULT_SPAN_TEXT)
-    {
-        // Set our parsing variables.
-        $this->lowercase = $lowercase;
-        $this->stripLineBreaks = $stripLineBreaks;
-        $this->targetCharset = $target_charset;
-        $this->defaultBR = $defaultBRText;
-        $this->defaultSpan = $defaultSpanText;
+    /**
+     * @var $defaultBR
+     * Contains the default BR text, invalid BR tags are replaced with this.
+     */
+    private $defaultBR;
+
+    /**
+     * @var $defaultSpan
+     * Contains the default span content.
+     */
+    private $defaultSpan;
+
+    /**
+     * @var boolean
+     * Should we strip linebreaks from the document (default: true)
+     */
+    private $stripLineBreaks = true;
+
+    /**
+     * @var $charset
+     * The charset of the document we're parsing. Public because it is referenced in childnodes.
+     */
+    public $charset;
+
+    /**
+     * @var $targetCharset
+     * The charset we wish to convert to. Public because it is referenced in childnodes.
+     */
+    public $targetCharset;
+
+
+    private $context;
+
+    /**
+     * @var bool $parsing
+     * Bool to check whether we're currently parsing.
+     */
+    private $parsing = false;
+
+    /**
+     * @param \Molly\library\io\dataloaders\files\File $file
+     * @param DOMFactory $factory
+     *
+     * @throws InvalidConstructorException;
+     *
+     * This class can only be created by accessing the DOMFactory static functions.
+     */
+    public function __construct(File &$file, DOMFactory $factory) {
+        if (is_null($factory)) {
+            throw new InvalidConstructorException("DOMObjects can only be created by the DOMFactory.");
+        }
+
+        $this->setFile($file);
     }
 
+    /**
+     * @param \Molly\library\io\dataloaders\files\File $file
+     * Sets the file property. This is used for saving the generated HTML to a file. Caching made easy!
+     */
+    private function setFile(File &$file) {
+        $this->file = $file;
+    }
+
+    /**
+     * @param bool $parsing
+     * Sets the parsing property.
+     */
+    protected function setParsing($parsing = true) {
+        $this->parsing = $parsing;
+    }
+
+    /**
+     * @return bool
+     * Checks whether we're currently parsing a node.
+     */
+    public function isParsing() {
+        return $this->parsing;
+    }
+
+    /**
+     * @param $context
+     * Sets the context. Only available when not parsing.
+     */
+    public function setContext($context) {
+        if (!$this->isParsing()) {
+            $this->context = $context;
+        }
+    }
+
+    /**
+     * @param $targetCharset
+     * Sets the targetCharset we should try to convert to. Only available when not parsing.
+     */
+    public function setTargetCharset($targetCharset) {
+        if (!$this->isParsing()) {
+            $this->targetCharset = $targetCharset;
+        }
+    }
+
+    /**
+     * @return mixed
+     * Gets the target charset.
+     */
+    public function getTargetCharset() {
+        return $this->targetCharset;
+    }
+
+    public function setCharset($charset) {
+        if (!$this->isParsing()) {
+            return $this->charset = $charset;
+        } else {
+            return false;
+        }
+    }
+
+    public function getCharset() {
+        return $this->charset;
+    }
+
+    /**
+     * @param $stripRN
+     * @return mixed
+     * Sets the behaviour for stripping linebreaks. Default is true but can be changed with this function.
+     * Only available when not parsing.
+     */
+    public function setStripLineBreaks($stripRN) {
+        if ($this->isParsing()) {
+            return $this->stripLineBreaks = $stripRN;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * @param $defaultBRText
+     * @return mixed
+     * Sets the default BR text. Only available when not parsing.
+     */
+    public function setDefaultBRtext($defaultBRText) {
+        if ($this->isParsing()) {
+            return $this->defaultBR = $defaultBRText;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * @param $defaultSpanText
+     * @return mixed
+     * Sets the default span text. Only available when not parsing.
+     */
+    public function setDefaultSpanText($defaultSpanText) {
+        if ($this->isParsing()) {
+            return $this->defaultSpan = $defaultSpanText;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * @return mixed
+     * @throws exceptions\HTMLStructureException
+     *
+     * Gets a reference to the rootnode.
+     */
     function &getRootNode() {
-        if (is_null($this->rootNode)) {
+        if ($this->rootNode === null) {
             throw new HTMLStructureException("Rootnode not set");
         } else {
             return $this->rootNode;
         }
     }
 
+    /**
+     * @param DOMNode $node
+     * @return DOMNode;
+     * Sets the rootnode to a specific DOMNode.
+     */
     protected function setRootNode(DOMNode &$node) {
-        $this->rootNode = $node;
+        return $this->rootNode = $node;
     }
 
+    /**
+     * @return string
+     * Printing or echo'ing this class will call upon this function. It will print the DOMNode to string, which is
+     * the same as calling the render function.
+     */
     function _toString() {
-        return "";
+        return $this->getRootNode()->_toString();
     }
 
+    /**
+     * @param $html
+     * Sets the content of this domclass to a certain string.
+     */
     protected function setContent($html) {
         // Set initial size.
         $this->size = $this->original_size = strlen($html);
         $this->rawHTML = $html;
+    }
+
+    /**
+     * Starts the parsing of the $rawHTML content.
+     */
+    public function parse() {
+        if (empty($this->file)) {
+            throw new HTMLStructureException("Failed to parse: Missing required File-object with content");
+        }
+
+        $this->setContent($this->file->getContent());
+        $this->load();
     }
 
     protected $pos;
@@ -188,23 +320,40 @@ class DOM implements DOMConstants
 
     protected $self_closing_tags = array('img'=>1, 'br'=>1, 'input'=>1, 'meta'=>1, 'link'=>1, 'hr'=>1, 'base'=>1, 'embed'=>1, 'spacer'=>1);
     protected $block_tags = array('root'=>1, 'body'=>1, 'form'=>1, 'div'=>1, 'span'=>1, 'table'=>1);
+    protected $optional_closing_tags = array(
+        'tr'=>array('tr'=>1, 'td'=>1, 'th'=>1),
+        'th'=>array('th'=>1),
+        'td'=>array('td'=>1),
+        'li'=>array('li'=>1),
+        'dt'=>array('dt'=>1, 'dd'=>1),
+        'dd'=>array('dd'=>1, 'dt'=>1),
+        'dl'=>array('dd'=>1, 'dt'=>1),
+        'p'=>array('p'=>1),
+        'nobr'=>array('nobr'=>1),
+        'b'=>array('b'=>1),
+        'option'=>array('option'=>1)
+    );
 
+    /**
+     * On clearing/deleting this class, we should call the clear function. Since we're using references, our memory is
+     * only cleared when all references to the original object are gone. So we need to go through all our nodes and
+     * make sure they're properly unset. Memory leaks aren't cool things.
+     */
     function __destruct()
     {
         $this->clear();
     }
 
     // load html from string
-    function load($str, $lowercase=true, $stripRN=true, $defaultBRText=DEFAULT_BR_TEXT, $defaultSpanText=DEFAULT_SPAN_TEXT)
+    function load()
     {
-        global $debugObject;
-
         // prepare
-        $this->prepare($str, $lowercase, $stripRN, $defaultBRText, $defaultSpanText);
+        $this->prepare();
         // strip out comments
         $this->remove_noise("'<!--(.*?)-->'is");
         // strip out cdata
         $this->remove_noise("'<!\[CDATA\[(.*?)\]\]>'is", true);
+
         // Per sourceforge http://sourceforge.net/tracker/?func=detail&aid=2949097&group_id=218559&atid=1044037
         // Script tags removal now preceeds style tag removal.
         // strip out <script> tags
@@ -221,45 +370,13 @@ class DOM implements DOMConstants
         $this->remove_noise("'(\{\w)(.*?)(\})'s", true);
 
         // parsing
-        while ($this->parse());
+        while ($this->parse_html());
         // end
-        $this->root->_[HDOM_INFO_END] = $this->cursor;
+        $this->getRootNode()->addInfo(HDOM_INFO_END, $this->cursor);
         $this->parse_charset();
 
         // make load function chainable
         return $this;
-    }
-
-    // load html from file
-    function load_file()
-    {
-        $args = func_get_args();
-        $this->load(call_user_func_array('file_get_contents', $args), true);
-        // Throw an error if we can't properly load the dom.
-        if (($error=error_get_last())!==null) {
-            $this->clear();
-            return false;
-        }
-    }
-
-    // set callback function
-    function set_callback($function_name)
-    {
-        $this->callback = $function_name;
-    }
-
-    // remove callback function
-    function remove_callback()
-    {
-        $this->callback = null;
-    }
-
-    // save dom as string
-    function save($filepath='')
-    {
-        $ret = $this->root->innertext();
-        if ($filepath!=='') file_put_contents($filepath, $ret, LOCK_EX);
-        return $ret;
     }
 
     // find dom node by css selector
@@ -274,14 +391,14 @@ class DOM implements DOMConstants
     {
         foreach ($this->getChildNodes() as $node) {
             if ($node instanceof DOMNode) {
-                $node->clear();
+                $node->destroyNode();
                 $node = null;
             }
         }
 
         foreach ($this->getLinkedNodes() as $node) {
             if ($node instanceof DOMNode) {
-                $node->clear();
+                $node->destroyNode();
                 $node = null;
             }
         }
@@ -297,42 +414,37 @@ class DOM implements DOMConstants
     }
 
     // prepare HTML data and init everything
-    protected function prepare($rawHtml, $lowercase = true, $stripRN = true, $defaultBRText = DEFAULT_BR_TEXT, $defaultSpanText = DEFAULT_SPAN_TEXT)
+    protected function prepare()
     {
+        // Not using the getrootnode, as that may throw an exception.
         if (isset($this->rootNode)) {
             $this->clear();
         }
 
-        $this->setContent($rawHtml);
-
         //before we save the string as the doc...  strip out the \r \n's if we are told to.
-        if ($stripRN) {
-            $str = str_replace("\r", " ", $rawHtml);
-            $str = str_replace("\n", " ", $rawHtml);
+        if ($this->stripLineBreaks) {
+            $this->rawHTML = str_replace("\r", " ", $this->rawHTML);
+            $this->rawHTML = str_replace("\n", " ", $this->rawHTML);
 
             // set the length of content since we have changed it.
-            $this->size = strlen($rawHtml);
+            $this->size = strlen($this->rawHTML);
         }
 
-        $this->doc = $rawHtml;
+        $this->doc = $this->rawHTML;
         $this->pos = 0;
         $this->cursor = 1;
         $this->noise = array();
-        $this->nodes = array();
-        $this->lowercase = $lowercase;
-        $this->default_br_text = $defaultBRText;
-        $this->default_span_text = $defaultSpanText;
 
         $this->setRootNode(new DOMNode($this));
-        $this->getRootNode()->tag = 'root';
-        $this->getRootNode()->_[HDOM_INFO_BEGIN] = -1;
-        $this->getRootNode()->nodetype = HDOM_TYPE_ROOT;
-        $this->setParent($this->getRootNode());
+        $this->getRootNode()->setTag('root');
+        $this->getRootNode()->addInfo(self::HDOM_INFO_BEGIN, -1);
+        $this->getRootNode()->setNodeType(self::HDOM_TYPE_ROOT);
+
         if ($this->size>0) $this->char = $this->doc[0];
     }
 
     // parse html content
-    protected function parse()
+    protected function parse_html()
     {
         if (($s = $this->copy_until_char('<'))==='')
         {
@@ -342,7 +454,7 @@ class DOM implements DOMConstants
         // text
         $node = new DOMNode($this);
         ++$this->cursor;
-        $node->_[HDOM_INFO_TEXT] = $s;
+        $node->addInfo(self::HDOM_INFO_TEXT, $s);
         $this->link_nodes($node, false);
         return true;
     }
@@ -352,8 +464,6 @@ class DOM implements DOMConstants
     // (or the content_type header from the last transfer), we will parse THAT, and if a charset is specified, we will use it over any other mechanism.
     protected function parse_charset()
     {
-        global $debugObject;
-
         $charset = null;
 
         if (function_exists('get_last_retrieve_url_contents_content_type'))
@@ -363,7 +473,6 @@ class DOM implements DOMConstants
             if ($success)
             {
                 $charset = $matches[1];
-                if (is_object($debugObject)) {$debugObject->debugLog(2, 'header content-type found charset of: ' . $charset);}
             }
 
         }
@@ -374,7 +483,6 @@ class DOM implements DOMConstants
             if (!empty($el))
             {
                 $fullvalue = $el->content;
-                if (is_object($debugObject)) {$debugObject->debugLog(2, 'meta content-type tag found' . $fullvalue);}
 
                 if (!empty($fullvalue))
                 {
@@ -386,7 +494,6 @@ class DOM implements DOMConstants
                     else
                     {
                         // If there is a meta tag, and they don't specify the character set, research says that it's typically ISO-8859-1
-                        if (is_object($debugObject)) {$debugObject->debugLog(2, 'meta content-type tag couldn\'t be parsed. using iso-8859 default.');}
                         $charset = 'ISO-8859-1';
                     }
                 }
@@ -397,13 +504,10 @@ class DOM implements DOMConstants
         if (empty($charset))
         {
             // Have php try to detect the encoding from the text given to us.
-            $charset = mb_detect_encoding($this->root->plaintext . "ascii", $encoding_list = array( "UTF-8", "CP1252" ) );
-            if (is_object($debugObject)) {$debugObject->debugLog(2, 'mb_detect found: ' . $charset);}
-
+            $charset = mb_detect_encoding($this->getRootNode()->plaintext . "ascii", $encoding_list = array( "UTF-8", "CP1252" ) );
             // and if this doesn't work...  then we need to just wrongheadedly assume it's UTF-8 so that we can move on - cause this will usually give us most of what we need...
             if ($charset === false)
             {
-                if (is_object($debugObject)) {$debugObject->debugLog(2, 'since mb_detect failed - using default of utf-8');}
                 $charset = 'UTF-8';
             }
         }
@@ -411,13 +515,10 @@ class DOM implements DOMConstants
         // Since CP1252 is a superset, if we get one of it's subsets, we want it instead.
         if ((strtolower($charset) == strtolower('ISO-8859-1')) || (strtolower($charset) == strtolower('Latin1')) || (strtolower($charset) == strtolower('Latin-1')))
         {
-            if (is_object($debugObject)) {$debugObject->debugLog(2, 'replacing ' . $charset . ' with CP1252 as its a superset');}
             $charset = 'CP1252';
         }
 
-        if (is_object($debugObject)) {$debugObject->debugLog(1, 'EXIT - ' . $charset);}
-
-        return $this->_charset = $charset;
+        return $this->setCharset($charset);
     }
 
     // read tag info
@@ -425,9 +526,10 @@ class DOM implements DOMConstants
     {
         if ($this->char!=='<')
         {
-            $this->root->_[HDOM_INFO_END] = $this->cursor;
+            $this->getRootNode()->addInfo(self::HDOM_INFO_END, $this->cursor);
             return false;
         }
+
         $begin_tag_pos = $this->pos;
         $this->char = (++$this->pos<$this->size) ? $this->doc[$this->pos] : null; // next
 
@@ -444,75 +546,75 @@ class DOM implements DOMConstants
             if (($pos = strpos($tag, ' '))!==false)
                 $tag = substr($tag, 0, $pos);
 
-            $parent_lower = strtolower($this->parent->tag);
+            $parent_lower = strtolower($this->getParent()->getTag());
             $tag_lower = strtolower($tag);
 
-            if ($parent_lower!==$tag_lower)
+            if ($parent_lower !== $tag_lower)
             {
                 if (isset($this->optional_closing_tags[$parent_lower]) && isset($this->block_tags[$tag_lower]))
                 {
-                    $this->parent->_[HDOM_INFO_END] = 0;
-                    $org_parent = $this->parent;
+                    $this->getParent()->addInfo(self::HDOM_INFO_END, 0);
+                    $org_parent = $this->getParent();
 
-                    while (($this->parent->parent) && strtolower($this->parent->tag)!==$tag_lower)
-                        $this->parent = $this->parent->parent;
+                    while (($this->getParent()->getParent()) && strtolower($this->getParent()->getTag())!== $tag_lower)
+                        $this->setParent($this->getParent()->getParent());
 
-                    if (strtolower($this->parent->tag)!==$tag_lower) {
-                        $this->parent = $org_parent; // restore origonal parent
-                        if ($this->parent->parent) $this->parent = $this->parent->parent;
-                        $this->parent->_[HDOM_INFO_END] = $this->cursor;
+                    if (strtolower($this->getParent()->getTag())!== $tag_lower) {
+                        $this->setParent($org_parent); // restore original parent
+                        if ($this->getParent()->getParent()) $this->setParent($this->getParent()->getParent());
+                        $this->getParent()->addInfo(self::HDOM_INFO_END, $this->cursor);
                         return $this->as_text_node($tag);
                     }
                 }
-                else if (($this->parent->parent) && isset($this->block_tags[$tag_lower]))
+                else if (($this->getParent()->getParent()) && isset($this->block_tags[$tag_lower]))
                 {
-                    $this->parent->_[HDOM_INFO_END] = 0;
-                    $org_parent = $this->parent;
+                    $this->getParent()->addInfo(self::HDOM_INFO_END, 0);
+                    $org_parent = $this->getParent();
 
-                    while (($this->parent->parent) && strtolower($this->parent->tag)!==$tag_lower)
-                        $this->parent = $this->parent->parent;
+                    while (($this->getParent()->getParent()) && strtolower($this->getParent()->getTag()) !== $tag_lower)
+                        $this->setParent($this->getParent()->getParent());
 
-                    if (strtolower($this->parent->tag)!==$tag_lower)
+                    if (strtolower($this->getParent()->getTag()) !== $tag_lower)
                     {
-                        $this->parent = $org_parent; // restore origonal parent
-                        $this->parent->_[HDOM_INFO_END] = $this->cursor;
+                        $this->setParent($org_parent); // restore original parent
+                        $this->getParent()->addInfo(self::HDOM_INFO_END, $this->cursor);
                         return $this->as_text_node($tag);
                     }
                 }
-                else if (($this->parent->parent) && strtolower($this->parent->parent->tag)===$tag_lower)
+                else if (($this->getParent()->getParent()) && strtolower($this->getParent()->getParent()->getTag() )=== $tag_lower)
                 {
-                    $this->parent->_[HDOM_INFO_END] = 0;
-                    $this->parent = $this->parent->parent;
+                    $this->getParent()->addInfo(self::HDOM_INFO_END, 0);
+                    $this->setParent($this->getParent()->getParent());
                 }
                 else
                     return $this->as_text_node($tag);
             }
 
-            $this->parent->_[HDOM_INFO_END] = $this->cursor;
-            if ($this->parent->parent) $this->parent = $this->parent->parent;
+            $this->getParent()->addInfo(self::HDOM_INFO_END, $this->cursor);
+            if ($this->getParent()->getParent()) $this->setParent($this->getParent()->getParent());
 
             $this->char = (++$this->pos<$this->size) ? $this->doc[$this->pos] : null; // next
             return true;
         }
 
         $node = new DOMNode($this);
-        $node->_[HDOM_INFO_BEGIN] = $this->cursor;
+        $node->addInfo(self::HDOM_INFO_BEGIN, $this->cursor);
         ++$this->cursor;
         $tag = $this->copy_until($this->token_slash);
         $node->tag_start = $begin_tag_pos;
 
         // doctype, cdata & comments...
         if (isset($tag[0]) && $tag[0]==='!') {
-            $node->_[HDOM_INFO_TEXT] = '<' . $tag . $this->copy_until_char('>');
+            $node->addInfo(self::HDOM_INFO_TEXT, '<' . $tag . $this->copy_until_char('>'));
 
             if (isset($tag[2]) && $tag[1]==='-' && $tag[2]==='-') {
-                $node->nodetype = HDOM_TYPE_COMMENT;
-                $node->tag = 'comment';
+                $node->setNodeType(self::HDOM_TYPE_COMMENT);
+                $node->setTag('comment');
             } else {
-                $node->nodetype = HDOM_TYPE_UNKNOWN;
-                $node->tag = 'unknown';
+                $node->setNodeType(self::HDOM_TYPE_UNKNOWN);
+                $node->setTag('unknown');
             }
-            if ($this->char==='>') $node->_[HDOM_INFO_TEXT].='>';
+            if ($this->char==='>') $node->addInfo(self::HDOM_INFO_TEXT, $node->getInfo(self::HDOM_INFO_TEXT) . '>');
             $this->link_nodes($node, true);
             $this->char = (++$this->pos<$this->size) ? $this->doc[$this->pos] : null; // next
             return true;
@@ -521,39 +623,39 @@ class DOM implements DOMConstants
         // text
         if ($pos=strpos($tag, '<')!==false) {
             $tag = '<' . substr($tag, 0, -1);
-            $node->_[HDOM_INFO_TEXT] = $tag;
+            $node->addInfo(self::HDOM_INFO_TEXT, $tag);
             $this->link_nodes($node, false);
             $this->char = $this->doc[--$this->pos]; // prev
             return true;
         }
 
         if (!preg_match("/^[\w-:]+$/", $tag)) {
-            $node->_[HDOM_INFO_TEXT] = '<' . $tag . $this->copy_until('<>');
+            $node->addInfo(self::HDOM_INFO_TEXT, '<' . $tag . $this->copy_until('<>'));
             if ($this->char==='<') {
                 $this->link_nodes($node, false);
                 return true;
             }
 
-            if ($this->char==='>') $node->_[HDOM_INFO_TEXT].='>';
+            if ($this->char==='>') $node->addInfo(self::HDOM_INFO_TEXT, $node->getInfo(self::HDOM_INFO_TEXT) . '>');
             $this->link_nodes($node, false);
             $this->char = (++$this->pos<$this->size) ? $this->doc[$this->pos] : null; // next
             return true;
         }
 
         // begin tag
-        $node->nodetype = HDOM_TYPE_ELEMENT;
-        $tag_lower = strtolower($tag);
-        $node->tag = ($this->lowercase) ? $tag_lower : $tag;
+        $node->setNodeType(self::HDOM_TYPE_ELEMENT);
+        $tag = strtolower($tag);
+        $node->setTag($tag);
 
         // handle optional closing tags
-        if (isset($this->optional_closing_tags[$tag_lower]) )
+        if (isset($this->optional_closing_tags[$tag]) )
         {
-            while (isset($this->optional_closing_tags[$tag_lower][strtolower($this->parent->tag)]))
+            while (isset($this->optional_closing_tags[$tag][strtolower($this->getParent()->getTag())]))
             {
-                $this->parent->_[HDOM_INFO_END] = 0;
-                $this->parent = $this->parent->parent;
+                $this->getParent()->addInfo(self::HDOM_INFO_END, 0);
+                $this->setParent($this->getParent()->getParent());
             }
-            $node->parent = $this->parent;
+            $node->setParent($this->getParent());
         }
 
         $guard = 0; // prevent infinity loop
@@ -576,21 +678,20 @@ class DOM implements DOMConstants
 
             // handle endless '<'
             if ($this->pos>=$this->size-1 && $this->char!=='>') {
-                $node->nodetype = HDOM_TYPE_TEXT;
-                $node->_[HDOM_INFO_END] = 0;
-                $node->_[HDOM_INFO_TEXT] = '<'.$tag . $space[0] . $name;
-                $node->tag = 'text';
+                $node->setNodeType(self::HDOM_TYPE_TEXT);
+                $node->addInfo(self::HDOM_INFO_END, 0);
+                $node->addInfo(self::HDOM_INFO_TEXT, '<'.$tag . $space[0] . $name);
+                $node->setTag('text');
                 $this->link_nodes($node, false);
                 return true;
             }
 
             // handle mismatch '<'
-            if ($this->doc[$this->pos-1]=='<') {
-                $node->nodetype = HDOM_TYPE_TEXT;
-                $node->tag = 'text';
-                $node->attr = array();
-                $node->_[HDOM_INFO_END] = 0;
-                $node->_[HDOM_INFO_TEXT] = substr($this->doc, $begin_tag_pos, $this->pos-$begin_tag_pos-1);
+            if ($this->doc[$this->pos-1] == '<') {
+                $node->setNodeType(self::HDOM_TYPE_TEXT);
+                $node->setTag('text');
+                $node->addInfo(self::HDOM_INFO_END, 0);
+                $node->addInfo(self::HDOM_INFO_TEXT, substr($this->doc, $begin_tag_pos, $this->pos-$begin_tag_pos-1));
                 $this->pos -= 2;
                 $this->char = (++$this->pos<$this->size) ? $this->doc[$this->pos] : null; // next
                 $this->link_nodes($node, false);
@@ -607,11 +708,11 @@ class DOM implements DOMConstants
                 }
                 else {
                     //no value attr: nowrap, checked selected...
-                    $node->_[HDOM_INFO_QUOTE][] = HDOM_QUOTE_NO;
-                    $node->attr[$name] = true;
+                    $node->addInfo(self::HDOM_INFO_QUOTE, array(HDOM_QUOTE_NO));
+                    $node->setAttribute($name, true);
                     if ($this->char!='>') $this->char = $this->doc[--$this->pos]; // prev
                 }
-                $node->_[HDOM_INFO_SPACE][] = $space;
+                $node->addInfo(self::HDOM_INFO_SPACE, $space);
                 $space = array($this->copy_skip($this->token_blank), '', '');
             }
             else
@@ -619,34 +720,35 @@ class DOM implements DOMConstants
         } while ($this->char!=='>' && $this->char!=='/');
 
         $this->link_nodes($node, true);
-        $node->_[HDOM_INFO_ENDSPACE] = $space[0];
+        $node->addInfo(self::HDOM_INFO_ENDSPACE, $space[0]);
 
         // check self closing
         if ($this->copy_until_char_escape('>')==='/')
         {
-            $node->_[HDOM_INFO_ENDSPACE] .= '/';
-            $node->_[HDOM_INFO_END] = 0;
+            $node->addInfo(self::HDOM_INFO_ENDSPACE, $node->getInfo(self::HDOM_INFO_ENDSPACE) . '/');
+            $node->addInfo(self::HDOM_INFO_END, 0);
         }
         else
         {
             // reset parent
-            if (!isset($this->self_closing_tags[strtolower($node->tag)])) $this->parent = $node;
+            if (!isset($this->self_closing_tags[strtolower($node->getTag())])) $this->setParent($node);
         }
+
         $this->char = (++$this->pos<$this->size) ? $this->doc[$this->pos] : null; // next
 
         // If it's a BR tag, we need to set it's text to the default text.
         // This way when we see it in plaintext, we can generate formatting that the user wants.
         // since a br tag never has sub nodes, this works well.
-        if ($node->tag == "br")
+        if ($node->getTag() == "br")
         {
-            $node->_[HDOM_INFO_INNER] = $this->default_br_text;
+            $node->addInfo(self::HDOM_INFO_INNER, $this->defaultBR);
         }
 
         return true;
     }
 
     // parse attributes
-    protected function parse_attr($node, $name, &$space)
+    protected function parse_attr(DOMNode $node, $name, &$space)
     {
         // Per sourceforge: http://sourceforge.net/tracker/?func=detail&aid=3061408&group_id=218559&atid=1044037
         // If the attribute is already defined inside a tag, only pay attention to the first one as opposed to the last one.
@@ -659,19 +761,19 @@ class DOM implements DOMConstants
         $space[2] = $this->copy_skip($this->token_blank);
         switch ($this->char) {
             case '"':
-                $node->_[HDOM_INFO_QUOTE][] = HDOM_QUOTE_DOUBLE;
+                $node->addInfo(self::HDOM_INFO_QUOTE, self::HDOM_QUOTE_DOUBLE);
                 $this->char = (++$this->pos<$this->size) ? $this->doc[$this->pos] : null; // next
                 $node->setAttribute($name, $this->restore_noise($this->copy_until_char_escape('"')));
                 $this->char = (++$this->pos<$this->size) ? $this->doc[$this->pos] : null; // next
                 break;
             case '\'':
-                $node->_[HDOM_INFO_QUOTE][] = HDOM_QUOTE_SINGLE;
+                $node->addInfo(self::HDOM_INFO_QUOTE, self::HDOM_QUOTE_SINGLE);
                 $this->char = (++$this->pos<$this->size) ? $this->doc[$this->pos] : null; // next
                 $node->setAttribute($name, $this->restore_noise($this->copy_until_char_escape('\'')));
                 $this->char = (++$this->pos<$this->size) ? $this->doc[$this->pos] : null; // next
                 break;
             default:
-                $node->_[HDOM_INFO_QUOTE][] = HDOM_QUOTE_NO;
+                $node->addInfo(HDOM_INFO_QUOTE, HDOM_QUOTE_NO);
                 $node->setAttribute($name, $this->restore_noise($this->copy_until($this->token_attr)));
         }
         // PaperG: Attributes should not have \r or \n in them, that counts as html whitespace.
@@ -700,7 +802,7 @@ class DOM implements DOMConstants
     {
         $node = new DOMNode($this);
         ++$this->cursor;
-        $node->_[HDOM_INFO_TEXT] = '</' . $tag . '>';
+        $node->addInfo(self::HDOM_INFO_TEXT, '</' . $tag . '>');
         $this->link_nodes($node, false);
         $this->char = (++$this->pos<$this->size) ? $this->doc[$this->pos] : null; // next
         return true;
@@ -780,17 +882,13 @@ class DOM implements DOMConstants
 
     // remove noise from html content
     // save the noise in the $this->noise array.
-    protected function remove_noise($pattern, $remove_tag=false)
+    protected function remove_noise($pattern, $remove_tag = false)
     {
-        global $debugObject;
-        if (is_object($debugObject)) { $debugObject->debugLogEntry(1); }
-
         $count = preg_match_all($pattern, $this->doc, $matches, PREG_SET_ORDER|PREG_OFFSET_CAPTURE);
 
         for ($i=$count-1; $i>-1; --$i)
         {
             $key = '___noise___'.sprintf('% 5d', count($this->noise)+1000);
-            if (is_object($debugObject)) { $debugObject->debugLog(2, 'key is: ' . $key); }
             $idx = ($remove_tag) ? 0 : 1;
             $this->noise[$key] = $matches[$i][$idx][0];
             $this->doc = substr_replace($this->doc, $key, $matches[$i][$idx][1], strlen($matches[$i][$idx][0]));
@@ -807,17 +905,12 @@ class DOM implements DOMConstants
     // restore noise to html content
     function restore_noise($text)
     {
-        global $debugObject;
-        if (is_object($debugObject)) { $debugObject->debugLogEntry(1); }
-
         while (($pos=strpos($text, '___noise___'))!==false)
         {
             // Sometimes there is a broken piece of markup, and we don't GET the pos+11 etc... token which indicates a problem outside of us...
             if (strlen($text) > $pos+15)
             {
                 $key = '___noise___'.$text[$pos+11].$text[$pos+12].$text[$pos+13].$text[$pos+14].$text[$pos+15];
-                if (is_object($debugObject)) { $debugObject->debugLog(2, 'located key of: ' . $key); }
-
                 if (isset($this->noise[$key]))
                 {
                     $text = substr($text, 0, $pos).$this->noise[$key].substr($text, $pos+16);
@@ -840,9 +933,6 @@ class DOM implements DOMConstants
     // Sometimes we NEED one of the noise elements.
     function search_noise($text)
     {
-        global $debugObject;
-        if (is_object($debugObject)) { $debugObject->debugLogEntry(1); }
-
         foreach($this->noise as $noiseElement)
         {
             if (strpos($noiseElement, $text)!==false)
@@ -850,10 +940,13 @@ class DOM implements DOMConstants
                 return $noiseElement;
             }
         }
+
+        return false;
     }
+
     function __toString()
     {
-        return (string)$this->root->innertext();
+        return (string) $this->getRootNode();
     }
 
     function __get($name)
@@ -861,15 +954,15 @@ class DOM implements DOMConstants
         switch ($name)
         {
             case 'outertext':
-                return $this->root->innertext();
+                return $this->getRootNode()->innertext();
             case 'innertext':
-                return $this->root->innertext();
+                return $this->getRootNode()->innertext();
             case 'plaintext':
-                return $this->root->text();
+                return $this->getRootNode()->text();
             case 'charset':
-                return $this->_charset;
+                return $this->getCharset();
             case 'target_charset':
-                return $this->_target_charset;
+                return $this->getTargetCharset();
         }
     }
 
@@ -878,12 +971,55 @@ class DOM implements DOMConstants
     function firstChild() {return $this->getFirstChild();}
     function lastChild() {return $this->getLastChild();}
 
-    function createTextNode($value) {return @end(self::constructFromString($value)->nodes);}
+    function createTextNode($value) {return @end(DOMFactory::constructFromString($value)->getChildNodes());}
     function getElementById($id) {return $this->find("#$id", 0);}
     function getElementsById($id, $idx=null) {return $this->find("#$id", $idx);}
     function getElementByTagName($name) {return $this->find($name, 0);}
     function getElementsByTagName($name, $idx=-1) {return $this->find($name, $idx);}
     function loadFile() {$args = func_get_args();$this->load_file($args);}
+
+    /**
+     * @return DOMNode
+     */
+    function &getParent()
+    {
+        return $this->getRootNode()->getParent();
+    }
+
+    /**
+     * @param DOMNode $node
+     * @return mixed
+     */
+    function setParent(DOMNode &$node)
+    {
+        return $this->getRootNode()->setParent($node);
+    }
+
+    /**
+     * @param $id
+     * @return mixed
+     */
+    function setChildId($id)
+    {
+        return $this->getRootNode()->setChildId($id);
+    }
+
+    /**
+     * @return int
+     */
+    function getChildId()
+    {
+        return $this->getRootNode()->getChildId();
+    }
+
+    function addChildNode(DOMNode &$node)
+    {
+        return $this->getRootNode()->addChildNode($node);
+    }
+
+    function addLinkedNode(DOMNode &$node) {
+        return $this->getRootNode()->addLinkedNode($node);
+    }
 
     function &getLinkedNodes()
     {
@@ -924,4 +1060,16 @@ class DOM implements DOMConstants
     {
         return $this->getRootNode()->getLastChild();
     }
+
+    function createElement($tag, $contents)
+    {
+        // TODO: Implement createElement() method.
+    }
+
+    function deleteElement(DOMNode &$node)
+    {
+        // TODO: Implement deleteElement() method.
+    }
+
+
 }

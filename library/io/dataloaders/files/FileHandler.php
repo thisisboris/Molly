@@ -7,11 +7,13 @@
  * Molly CMS - Written by Boris Wintein
  */
 
-use \Molly\library\io\dataloaders\abstracts\Handler;
+namespace Molly\library\io\dataloaders\files;
+
+use \Molly\library\io\dataloaders\abstracts\AbstractHandler;
 use \Molly\library\io\dataloaders\files\FileWriter;
 use \Molly\library\io\dataloaders\files\FileLoader;
 
-class FileHandler extends Handler
+class FileHandler extends AbstractHandler
 {
     private $writer, $loader;
 

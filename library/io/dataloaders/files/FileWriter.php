@@ -30,7 +30,7 @@ class FileWriter extends AbstractWriter
                 return true;
             }
         } else {
-            throw new IllegalArgumentException("Expected a file as argument, got " . gettype($file));
+            throw new IllegalArgumentException($file, "File");
         }
     }
 
@@ -40,10 +40,10 @@ class FileWriter extends AbstractWriter
                 $file->setContent($file->getContent() . $data);
                 $this->write($file);
             } else {
-                throw new IllegalArgumentException("Expected a string as additional data, got " . gettype($data));
+                throw new IllegalArgumentException($data, "String");
             }
         } else {
-            throw new IllegalArgumentException("Expected a file as argument, got " . gettype($file));
+            throw new IllegalArgumentException($file, "File");
         }
     }
 }

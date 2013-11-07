@@ -12,19 +12,27 @@ use Molly\library\exceptions\InvalidConstructorException as ConstructException;
 
 class MollyArray
 {
-    public $array;
+    public $_array;
 
     function __construct(&$array)
     {
         if (is_array($array)) {
-            $this->array = &$array;
+            $this->_array = &$array;
         } else {
             throw new ConstructException();
         }
     }
 
+    function __destroy() {
+        unset($this->_array);
+    }
+
+    function __get() {
+        return false;
+    }
+
     function search($needle) {
-        foreach($this->array as $key => $value) {
+        foreach($this->_array as $key => $value) {
             if (is_array($value) && !is_array($needle)) {
                 $tempArray = new MollyArray($value);
                 $arrayFind = $tempArray->search($needle);
@@ -39,7 +47,7 @@ class MollyArray
     }
 
     function contains_key($needle) {
-        foreach ($this->array as $key => $value) {
+        foreach ($this->_array as $key => $value) {
             if ($key == $needle) {
                 return true;
             } elseif (is_array($value)) {
@@ -58,7 +66,7 @@ class MollyArray
         if (!$this->contains_key($needle)) {
             return false;
         } else {
-            foreach ($this->array as $key => $value) {
+            foreach ($this->_array as $key => $value) {
                 if ($key == $needle) {
                     return $value;
                 } elseif (is_array($value)) {
@@ -75,12 +83,12 @@ class MollyArray
 
     function add($value, $key = null, $overwrite = true) {
         if (is_null($key)) {
-            $this->array[] = $value;
+            $this->_array[] = $value;
         } else if ($overwrite) {
-            $this->array[$key] = $value;
+            $this->_array[$key] = $value;
         } else {
-            if (!isset($this->array[$key])) {
-                $this->array[$key] = $value;
+            if (!isset($this->_array[$key])) {
+                $this->_array[$key] = $value;
             } else {
                 throw new \Exception("Array key has already been set. To overwrite set overwrite flag to true");
             }
@@ -93,14 +101,14 @@ class MollyArray
          */
 
         if ($iskey) {
-            if (isset($this->array[$value])) {
-                unset($this->array[$value]);
+            if (isset($this->_array[$value])) {
+                unset($this->_array[$value]);
                 return true;
             }
         } else {
-            foreach($this->array as $key => $content) {
+            foreach($this->_array as $key => $content) {
                 if ($value == $content) {
-                    unset($this->array[$key]);
+                    unset($this->_array[$key]);
                     return true;
                 } else if (is_array($content)) {
                     $content = new MollyArray($content);
@@ -115,7 +123,7 @@ class MollyArray
     }
 
     function is_assoc() {
-        $keys = array_keys($this->array);
+        $keys = array_keys($this->_array);
         foreach ($keys as $key) {
             if (is_string($key)) {
                 return true;
@@ -124,8 +132,24 @@ class MollyArray
         return false;
     }
 
+    function flatten() {
+        return $this->flattenPiece($this->_array);
+    }
+
+    private function flattenPiece($array) {
+        $return = '';
+        foreach ($array as $value) {
+            if (is_array($value)) {
+                $return .= $this->flattenPiece($value);
+            } else {
+                $return .= $value . ' ';
+            }
+        }
+        return rtrim($return);
+    }
+
     function __toString() {
-        return $this->dumpArray($this->array);
+        return $this->dumpArray($this->_array);
     }
 
     private function dumpArray($array, $depth = 0) {

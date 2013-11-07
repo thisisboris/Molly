@@ -13,9 +13,9 @@ use Molly\library\events\Event;
 use Molly\library\io\buffer\Buffer as Buffer;
 use Molly\library\events\interfaces\EventHandler as EventHandler;
 
-use \Molly\library\io\dataloaders\abstracts\Handler;
+use \Molly\library\io\dataloaders\abstracts\AbstractHandler;
 
-Class Archive extends Handler implements EventHandler {
+Class Archive extends AbstractHandler implements EventHandler {
     // Constants
     const CACHE_LOCATION = "cache";
 
