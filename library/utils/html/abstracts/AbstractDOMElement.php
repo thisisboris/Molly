@@ -8,20 +8,71 @@
  */
 namespace Molly\library\utils\html\abstracts;
 
+use Molly\library\events\abstracts\AbstractEventDispatcher;
+use Molly\library\events\Event;
 use \Molly\library\exceptions\IllegalArgumentException;
-
+use Molly\library\utils\html\DOM;
+use Molly\library\utils\html\exceptions\HTMLStructureException;
 use \Molly\library\utils\html\interfaces\DOMElement;
 
 use \Molly\library\utils\html\DOMNode;
-use \Molly\library\utils\html\DOMFactory;
 
-abstract class AbstractDOMElement implements DOMElement, \Iterator
+abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOMElement, \Iterator
 {
+    // Events
+    const EVENT_PARSING_START = 'EVENT_START_PARSE';
+    const EVENT_PARSING_END = 'EVENT_STOP_PARSE';
+    const EVENT_PARSING_ERROR = 'EVENT_PARSE_ERROR';
+
+    const EVENT_PARSING_NEW_NODE = 'EVENT_PARSE_NEW_NODE';
+
+    // http://www.w3schools.com/tags/
+    const TYPE_COMMENT = 0;
+    const TYPE_DOCTYPE = 1;
+    const TYPE_SELFCLOSING = 2;
+    const TYPE_DEFAULT = 3;
+    const TYPE_PLAINTEXT = 4;
+
+    public static $allowed_tags = array(
+        'a', 'abbr', 'address', 'area', 'article', 'aside', 'audio',
+        'b', 'base', 'bdi', 'bdo', 'blockquote', 'body', 'br', 'button',
+        'canvas', 'caption', 'cite', 'code', 'col', 'colgroup', 'command',
+        'datalist', 'dd', 'del', 'details', 'dfn', 'dialog', 'div', 'dl', 'dt',
+        'em', 'embed',
+        'fieldset', 'figcaption', 'figure', 'footer', 'form',
+        'head', 'header', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'html',
+        'h', 'iframe', 'img', 'input', 'ins',
+        'kbd', 'keygen',
+        'label', 'legend', 'li', 'link',
+        'map', 'mark', 'menu', 'meta', 'meter',
+        'nav', 'noscript',
+        'object', 'ol', 'optgroup', 'option',' output',
+        'p', 'param', 'pre', 'progress',
+        'q',
+        'rp', 'rt', 'ruby',
+        's', 'samp', 'script', 'section', 'select', 'small', 'source', 'span', 'strong', 'style', 'sub', 'summary', 'sup',
+        'table', 'tbody', 'td', 'textarea', 'tfoot', 'th', 'thead', 'time', 'title', 'tr', 'track',
+        'u', 'ul',
+        'var', 'video',
+        'wbr'
+    );
+
+    // Defaults
+    const DEFAULT_TARGET_CHARSET = 'UTF-8';
+
+    const DEFAULT_BR_TEXT = "\r\n";
+    const DEFAULT_SPAN_TEXT = " ";
+
     /**
      * @var DOMNode $parent
      * @description Contains reference to a possible parent DomNode element.
      */
     protected $parent;
+
+    /**
+     * @var
+     */
+    protected $tag;
 
     /**
      * @var array $children
@@ -48,75 +99,292 @@ abstract class AbstractDOMElement implements DOMElement, \Iterator
     private $loop_id = 0;
 
     /**
-     * Set the internal child-id pointer to the int specified with $id
-     *
-     * @param $id
-     * @throws \Molly\library\exceptions\IllegalArgumentException
+     * @var bool $interupted
+     * bool to check whether something happened between the function call 'start-parse' and the actual parsing.
      */
-    function setChildId($id) {
-        if (is_int($id)) {
-            $this->child_id = $id;
+    private $interupted = false;
+
+
+    /**
+     * @var string $serialized
+     * Contains serialized self after complete parsing. If this is filled in before parsing,
+     * this object is unserialized and used in stead of the parsed object.
+     */
+    protected $serialized = null;
+
+    /**
+     * @var $lowercase boolean
+     * Should all tags be coverted to lowercase or not?
+     * @note: Changed this from false to true, because I dislike uppercase tags. HTML doesn't yell.
+     */
+    protected $lowercase = true;
+
+    /**
+     * @var $rawHTML String
+     * Contains original HTML-string.
+     */
+    protected $rawHTML;
+
+    /**
+     * @var $size int
+     * Contains current size of the HTMLString. (Post parse)
+     */
+    protected $size;
+
+    /**
+     * @var $original_size int
+     * Contains original size of the HTMLString (Pre parse)
+     */
+    protected $original_size;
+
+    /**
+     * @var $cursor int
+     * Current location of the parsing.
+     */
+    protected $cursor;
+
+    /**
+     * @var $defaultBR
+     * Contains the default BR text, invalid BR tags are replaced with this.
+     */
+    protected $defaultBR;
+
+    /**
+     * @var $defaultSpan
+     * Contains the default span content.
+     */
+    protected $defaultSpan;
+
+    /**
+     * @var boolean
+     * Should we strip linebreaks from the document (default: true)
+     */
+    protected  $stripLineBreaks = true;
+
+    /**
+     * @var $charset
+     * The charset of the document we're parsing. Public because it is referenced in childnodes.
+     */
+    public $charset;
+
+    /**
+     * @var $targetCharset
+     * The charset we wish to convert to. Public because it is referenced in childnodes.
+     */
+    public $targetCharset;
+
+    /**
+     * @var string character at position $this->rawHTML[$this->cursor++];
+     */
+    private $character;
+
+    /**
+     * @var int $nodeType
+     * The type of node.
+     */
+    protected $nodeType;
+
+    /**
+     * @param $element
+     * @return mixed
+     * Reload the element using the data in $element.
+     */
+    abstract function reloadElement($element);
+
+    /**
+     *
+     */
+    function getTag()
+    {
+        return $this->tag;
+    }
+
+    function setTag($tag)
+    {
+        $this->tag = $tag;
+    }
+
+    /**
+     * @param String $attribute
+     * @return bool
+     * @throws \Molly\library\exceptions\IllegalArgumentException
+     *
+     * Checks whether this node has a certain attribute defined by the string $attribute
+     */
+    function hasAttribute($attribute) {
+        if (is_string($attribute)) {
+            return isset($this->attributes[$attribute]) && !empty($this->attributes[$attribute]);
         } else {
-            throw new IllegalArgumentException($id, "int");
+            throw new IllegalArgumentException($attribute, "String");
         }
     }
 
     /**
-     * Gets the internal child-id pointer.
-     * @return mixed
-     */
-    function getChildId() {
-        return $this->child_id;
-    }
-
-    /**
-     * Creates a new HTML-element from a tag (div, section, ...) and it's content.
+     * @param $attribute
+     * @return bool|mixed
+     * @throws \Molly\library\exceptions\IllegalArgumentException
      *
-     * @param $tag
-     * @param $contents
-     * @return mixed
+     * If this node has a certain attribute, defined by the string $attribute, this returns the value of that attribute.
      */
-    function createElement($tag, $contents) {
-        return DOMFactory::constructFromString("<$tag>$contents</$tag>")->getFirstChild();
-    }
-
-    /**
-     * Completely deletes a child from the domtree.
-     *
-     * @param \Molly\library\utils\html\DOMNode $node
-     * @return bool
-     */
-    function deleteElement(DOMNode &$node) {
-        if ($node->getParent() == $this) {
-            $node->setAttribute("outertext", "");
-            $this->removeChildNode($node);
-            $node->setParent(null);
-            $node->child_id = null;
-
-            foreach ($node->getLinkedNodes() as $linkednode) {
-                if ($linkednode instanceof DOMNode) {
-                    $linkednode->removeLinkedNode($node);
+    function getAttribute($attribute) {
+        if (is_string($attribute)) {
+            if ($this->hasAttribute($attribute)) {
+                if ($attribute == 'class') {
+                    return implode(' ', $this->attributes['class']);
+                } else {
+                    return $this->attributes[$attribute];
                 }
+            } else {
+                return false;
             }
+        } else {
+            throw new IllegalArgumentException($attribute, "String");
+        }
+    }
 
+    /**
+     * @param $attribute
+     * @param $value
+     * @return bool
+     * @throws \Molly\library\exceptions\IllegalArgumentException
+     *
+     * Sets the value of a certain attribute defined by the string $attribute to the value $value.
+     *
+     * @TODO: Implementing the stripping of styles (when something is added to the style tag) and the stripping of
+     * @TODO: javascript functions. By defining a strict css-relation, we could use jQuery to replace the javascript
+     * @TODO: and put it in the head tag. Cleaning up HTML drastically. This however, is just an idea. I have yet to
+     * @TODO: check what the actual implementation would be, and how it could be done. (And if it's possible at all)
+     */
+    function setAttribute($attribute, $value) {
+        if (is_string($attribute)) {
+            switch ($attribute) {
+                case 'style':
+                    $this->attributes['style'] = $value;
+                    return true;
+                    break;
+
+                case 'class':
+                    if (!isset($this->attributes['class']) || empty($this->attributes['class'])) $this->attributes['class'] = array();
+
+                    if (is_array($value)) {
+                        $this->attributes['class'] = array_merge($this->attributes['class'], $value);
+                    } else if (is_string($value)) {
+                        $this->attributes['class'][] = $value;
+                    } else {
+                        throw new IllegalArgumentException($value, "String|Array - When setting a class, always use a string or array");
+                    }
+
+                    return true;
+                    break;
+
+                default:
+                    $this->attributes[$attribute] = $value;
+                    return true;
+                    break;
+            }
+        } else {
+            throw new IllegalArgumentException($attribute, "String");
+        }
+    }
+
+    /**
+     * @return bool
+     * Checks whether this nodes has any attributes at all.
+     */
+    function hasAttributes() {
+        return isset($this->attributes) && !empty($this->attributes);
+    }
+
+    /**
+     * @return array
+     * Returns all the attributes. While classes are stored internally as an array, this returns them as a string.
+     */
+    function getAttributes() {
+        $return = $this->attributes;
+        if (isset($return['class'])) {
+            $return['class'] = implode(" ", $return['class']);
+        }
+        return $return;
+    }
+
+    /**
+     * @param $attribute
+     * @return bool
+     * @throws \Molly\library\exceptions\IllegalArgumentException
+     *
+     * Removes a certain attribute defined bu the string $attribute.
+     */
+    function removeAttribute($attribute) {
+        if (is_string($attribute)) {
+            unset($this->attributes[$attribute]);
             return true;
         } else {
-            return false;
+            throw new IllegalArgumentException($attribute, "String");
         }
     }
 
     /**
-     * Creates a new element from a string.
-     * @param $htmlstring
-     * @return bool|\Molly\library\utils\html\DOMNode
+     * Following all __functions relate to attributes to this node. To set specific settings, or get nodes you should
+     * always use the functions that were written for these parameters.
+     *
+     * @param $name
+     * @param $value
+     * @return bool
+     *
+     * Set a node attribute to a certain value. True when succesful, false otherwise.
      */
-    function createElementFromHTML($htmlstring) {
-        return DOMFactory::constructFromString($htmlstring)->getRootNode();
+    function __set($name, $value) {
+        return $this->setAttribute($name, $value);
+    }
+
+    /**
+     * @param $name
+     * @return bool
+     *
+     * Gets the value of the attribute specified by $name. False if not set.
+     * @see _set();
+     */
+    function __get($name) {
+        return $this->getAttribute($name);
+    }
+
+    /**
+     * @param $name
+     * @return bool
+     *
+     * Checks whether a certain attribute is set.
+     * @see _set();
+     */
+    function __isset($name) {
+        return $this->hasAttribute($name);
+    }
+
+    /**
+     * @param $name
+     * @return bool
+     *
+     * Removes a certain attribute.
+     * @see _set();
+     */
+    function __unset($name) {
+        return $this->removeAttribute($name);
+    }
+
+    function getNodeType() {
+        return $this->nodeType;
+    }
+
+    function setNodeType($nodeType = self::TYPE_PLAINTEXT) {
+        $this->nodeType = $nodeType;
+    }
+
+    function &getRoot() {
+        return $this->getParent()->getRoot();
     }
 
     /**
      * Returns the reference to the parent domnode.
-     * @return \Molly\library\utils\html\DOMNode
+     * @return \Molly\library\utils\html\interfaces\DOMElement
      */
     function &getParent() {
         return $this->parent;
@@ -124,9 +392,9 @@ abstract class AbstractDOMElement implements DOMElement, \Iterator
 
     /**
      * Sets the parent of this node to the referenced node.
-     * @param \Molly\library\utils\html\DOMNode &$node
+     * @param \Molly\library\utils\html\interfaces\DOMElement
      */
-    function setParent(DOMNode &$node) {
+    function setParent(DOMElement &$node) {
         $this->parent = $node;
     }
 
@@ -175,10 +443,10 @@ abstract class AbstractDOMElement implements DOMElement, \Iterator
 
     /**
      * Adds a node as child to this node. Updates the node his parent.
-     * @param \Molly\library\utils\html\DOMNode $node
+     * @param \Molly\library\utils\html\interfaces\DOMElement $node
      * @return bool
      */
-    function addChildNode(DOMNode &$node) {
+    function addChildNode(DOMElement &$node) {
         if ($node->getParent() == null) {
             $node->setParent($this);
 
@@ -187,7 +455,7 @@ abstract class AbstractDOMElement implements DOMElement, \Iterator
             $node->setChildId($id);
 
             return true;
-        } else if ($node->getParent() instanceof DOMNode) {
+        } else if ($node->getParent() instanceof DOMElement) {
             $node->getParent()->removeChildNode($node);
 
             $node->setParent($this);
@@ -204,10 +472,10 @@ abstract class AbstractDOMElement implements DOMElement, \Iterator
 
     /**
      * Removes a node from this nodes children. Also updates the parent of the node.
-     * @param \Molly\library\utils\html\DOMNode $node
+     * @param \Molly\library\utils\html\interfaces\DOMElement $node
      * @return bool
      */
-    function removeChildNode(DOMNode &$node) {
+    function removeChildNode(DOMElement &$node) {
         if ($node->getParent() == $this && in_array($node, $this->children) && isset($this->children[$node->getChildId()])) {
             unset($this->children[$node->getChildId()]);
             return true;
@@ -273,6 +541,29 @@ abstract class AbstractDOMElement implements DOMElement, \Iterator
     }
 
     /**
+     * Set the internal child-id pointer to the int specified with $id
+     *
+     * @param $id
+     * @throws \Molly\library\exceptions\IllegalArgumentException
+     */
+    function setChildId($id) {
+        if (is_int($id)) {
+            $this->child_id = $id;
+        } else {
+            throw new IllegalArgumentException($id, "int");
+        }
+    }
+
+    /**
+     * Gets the internal child-id pointer.
+     * @return mixed
+     */
+    function getChildId() {
+        return $this->child_id;
+    }
+
+
+    /**
      * Iterator Functions for iterating over the child nodes. Added "previous" method to be able to return to the previous element.
      */
 
@@ -298,5 +589,191 @@ abstract class AbstractDOMElement implements DOMElement, \Iterator
 
     function rewind() {
         $this->loop_id = 0;
+    }
+
+    /**
+     * Parsing functions
+     */
+
+    protected function setRawHTML($string) {
+        $this->rawHTML = $string;
+        $this->original_size = strlen($string);
+    }
+
+    public function getCursor() {
+        return $this->cursor;
+}
+
+    /**
+     * Forces an 'interruption' to the parsing, making the code recheck itself before it wrecks itself.
+     * Functions that should call this: All data-injecting functions omg.
+     */
+    protected function interrupt() {
+        $this->interupted = true;
+    }
+
+    /**
+     * Checks if code execution was interrupted
+     * @return bool
+     */
+    function isInterupted() {
+        return $this->interupted;
+    }
+
+    /**
+     * Restarts the parsing process. Used internally to undo faulty interruptions.
+     */
+    private function restart() {
+        $this->interupted = false;
+    }
+
+    /**
+     * @throws HTMLStructureException
+     */
+    private function parse() {
+        /**
+         * This function is called for every possible element contained within this DOMElement.
+         * The cursor is thrown ahead to each next character of importance, after which we check
+         * if the following characters form a tag.
+         *
+         * Tags are recognized by the fact that there is no whitespace between the first and last non-whitespace-
+         * character in between lt & rt;
+         */
+
+
+        // Check if we should interrupt
+        if ($this->isInterupted()) {
+            if (!is_null($this->serialized)) {
+                $this->reloadElement(unserialize($this->serialized));
+            } else {
+                $this->restart();
+            }
+        }
+
+        $node = null;
+
+        while ($this->cursor < $this->original_size) {
+            echo "while ($this->cursor < $this->original_size) { ";
+            // Get next char
+            $this->character = (isset($this->rawHTML[$this->cursor + 1]) ? $this->rawHTML[$this->cursor + 1] : null);
+
+            if ($this->rawHTML[$this->cursor] === '<') {
+                switch ($this->character) {
+                    case '!':
+                        // Check for comment tag,
+                        if ($this->rawHTML[$this->cursor + 2] == '-' && $this->rawHTML[$this->cursor + 3] == '-') {
+                            $node = new DOMNode($this->getRoot(), $this);
+                            $node->setNodeType(AbstractDOMElement::TYPE_COMMENT);
+                            $node->setRawHTML(substr($this->rawHTML, $this->cursor, strpos($this->rawHTML, '>', $this->cursor)));
+
+                            $this->addChildNode($node);
+                        }
+                    break;
+
+                    case '/':
+                        // Check if there is only 1 word between the cursor and the closest '>'
+                        if ( ($rt = strpos($this->rawHTML, '>', $this->cursor)) !== false && preg_match("^\/[\w-:]+$", ($possible_closing_tag = substr($this->rawHTML, $this->cursor, $this->cursor - $rt)))) {
+                            if (strtolower($possible_closing_tag) == $this->getTag()) {
+                                $this->cursor = $rt;
+                                return false;
+                            } else {
+                                throw new HTMLStructureException("Malformed HTML. Found closing tag: " . $possible_closing_tag . " expected: " . $this->getTag());
+                            }
+                        } else {
+                            // Check if this is a selfclosing tag
+                            if ($this->getNodeType() === AbstractDOMElement::TYPE_SELFCLOSING) {
+                                if ($this->rawHTML[$this->cursor + 2] == '>') {
+                                    $this->cursor = $this->cursor + 2;
+                                    return false;
+                                }
+                            }
+                        }
+                    break;
+
+                    default:
+                        // Beginning of a tag.
+                        $suggested_tag = substr($this->rawHTML, $this->cursor, strpos($this->rawHTML, ' ', $this->cursor) - $this->cursor);
+
+                        // If tag exists.
+                        if (in_array(strtolower($suggested_tag), self::$allowed_tags)) {
+                            $rt = strpos($this->rawHTML, '>', $this->cursor);
+
+                            $tagcontents = substr($this->rawHTML, $this->cursor, $rt - $this->cursor);
+
+                            // Catch all attribute=value pairs.
+                            $attributes = array();
+                            preg_match_all('[\w]+[\=]([\']([\w]+[\ ]*)*[\']|[\"]([\w]+[\ ]*)*[\"])', $tagcontents, $attributes);
+
+                            $node = new DOMNode($this->getRoot(), $this);
+                            $node->setTag($suggested_tag);
+
+                            foreach ($attributes as $attributepair){
+                                $attribute = explode('=', $attributepair);
+                                $this->setAttribute($attribute[0], str_replace('\"', '', str_replace('\'', '', $attribute)));
+                            }
+
+                            // Pass along all leftover data.
+                            $node->setRawHTML(substr($this->rawHTML, $rt));
+
+                            $node->startParse();
+
+                            $this->cursor += $node->getCursor();
+                            return true;
+                        }
+                        break;
+                }
+
+                // Treat like noise, not a tag. Move the cursor up one and return a true so the loop continues..
+                $this->cursor++;
+                return true;
+
+            } else {
+
+                // Adds the sequence as a plaintext node so that it still can be treated as a child.
+                $old_pos = $this->cursor;
+
+                while (!($this->rawHTML[$this->cursor] == '<' && $this->rawHTML[$this->cursor++] != " ")) {
+                    $this->cursor = strpos($this->rawHTML, '<', $this->cursor);
+                }
+
+                $node = new DOMNode($this->getRoot(), $this);
+                $node->setNodeType(AbstractDOMElement::TYPE_PLAINTEXT);
+                $node->setRawHTML(substr($this->rawHTML, $old_pos, $this->cursor - $old_pos));
+                $this->addChildNode($node);
+
+
+                return true;
+            }
+        }
+
+        if (empty($this->file)) {
+            throw new HTMLStructureException("Failed to parse: Missing required File-object with content");
+        }
+
+        return false;
+    }
+
+    function startParse() {
+        echo "startparse";
+        if ($this->getNodeType == self::TYPE_PLAINTEXT) {
+            return $this;
+        }
+
+        echo "dispatch";
+        $this->dispatchEvent(new Event('DOMElement-preload', 'About to start parsing data', $this, $this, self::EVENT_PARSING_START), $this->rawData);
+
+        // Set the original size
+        $this->original_size = strlen($this->rawHTML);
+
+        // Reset the cursor
+        $this->cursor = 0;
+
+        // Starts parsing, false on completion. Throws HTML-exceptions when html is invalid.
+        while ($this->parse());
+
+        $this->size = strlen($this->processedHTML);
+
+        // Return this object, so that the parent parser may change his internal cursor.
+        return $this;
     }
 }

@@ -17,7 +17,7 @@ Class Scribe extends FileWriter {
     public function createCache($identifier, $data) {
         $file = new File($identifier . "-cache-" . time());
         $file->setLocation(Archive::CACHE_LOCATION);
-
+        $file->setContent($data);
         return $this->write($file, false);
     }
 

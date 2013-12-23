@@ -73,7 +73,7 @@ Class Cookie {
 		if (is_int($expire)) {
 			$this->expire = $expire;
 		} else {
-			throw new IllegalArgumentException("Cookie expiry must be a valid integer. Got " . gettype($expire));
+			throw new IllegalArgumentException($expire, "Integer");
 		}
 	}
 

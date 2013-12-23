@@ -9,7 +9,7 @@
             <div id="head">
                 <a href="" class="logo" theme="logo">
                     <span class="replace" theme="website_name">
-
+                        hier hoort website name te staan
                     </span>
                 </a>
             </div>

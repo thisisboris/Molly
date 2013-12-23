@@ -36,8 +36,8 @@ class Buffer extends EventDispatcher {
     private $injections;
 
     /** EVENT CONSTANTS **/
-    const BUFFER_REGISTERED = "buffer was succesfully registered";
-    const BUFFER_UNREGISTERED = "buffer was succesfully unregistered";
+    const EVENT_BUFFER_REGISTERED = "buffer was succesfully registered";
+    const EVENT_BUFFER_UNREGISTERED = "buffer was succesfully unregistered";
 
 	private function __construct() {
 	 	if (substr_count($_SERVER['HTTP_ACCEPT_ENCODING'], 'gzip') && ($ext_zlib_loaded = extension_loaded('zlib')) && (PHP_VERSION >= '4')){
@@ -61,7 +61,7 @@ class Buffer extends EventDispatcher {
 
 			array_push($this->stack, $bufferinfo);
 
-			$event = new Event("BUFFER_REGISTERED", "A buffer was added to the stack", $bufferinfo, $this, self::BUFFER_REGISTERED);
+			$event = new Event("BUFFER_REGISTERED", "A buffer was added to the stack", $bufferinfo, $this, self::EVENT_BUFFER_REGISTERED);
 			$this->dispatchEvent($event);
 
 			if ($this->isEncoded() && !headers_sent()) {
@@ -101,7 +101,7 @@ class Buffer extends EventDispatcher {
            		call_user_func($bufferinfo['callback'], $data);
             }
 
-			$event = new Event("BUFFER_UNREGISTERED", "A buffer was closed and removed from the stack", $bufferinfo, $this, self::BUFFER_UNREGISTERED, $data);
+			$event = new Event("BUFFER_UNREGISTERED", "A buffer was closed and removed from the stack", $bufferinfo, $this, self::EVENT_BUFFER_UNREGISTERED, $data);
 			$this->dispatchEvent($event);
 
             return $data;
@@ -116,7 +116,7 @@ class Buffer extends EventDispatcher {
            		call_user_func($bufferinfo['callback'], $data);
             }
 
-			$event = new Event("BUFFER_UNREGISTERED", "A buffer was closed and removed from the stack", $bufferinfo, $this, self::BUFFER_UNREGISTERED, $data);
+			$event = new Event("BUFFER_UNREGISTERED", "A buffer was closed and removed from the stack", $bufferinfo, $this, self::EVENT_BUFFER_UNREGISTERED, $data);
 			$this->dispatchEvent($event);
 
             return $data;

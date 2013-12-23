@@ -43,14 +43,14 @@ Class Archive extends AbstractHandler implements EventHandler {
 		$this->scholar = new Scholar($this);
 
 		$this->buffer = &Buffer::getInstance();
-		$this->buffer->addEventListener(Buffer::BUFFER_REGISTERED, $this);
-		$this->buffer->addEventListener(Buffer::BUFFER_UNREGISTERED, $this);
+		$this->buffer->addEventListener(Buffer::EVENT_BUFFER_REGISTERED, $this);
+		$this->buffer->addEventListener(Buffer::EVENT_BUFFER_UNREGISTERED, $this);
 	}
 
 
 	public function handleEvent(Event &$event, $eventdata) {
         switch ($event->getEventType()) {
-            case Buffer::BUFFER_REGISTERED:
+            case Buffer::EVENT_BUFFER_REGISTERED:
                 if ($this->scholar->knows($eventdata)) {
                     // Do an injection
                     $data = $this->scholar->load($eventdata);
@@ -58,7 +58,7 @@ Class Archive extends AbstractHandler implements EventHandler {
                 }
                 break;
 
-            case Buffer::BUFFER_UNREGISTERED:
+            case Buffer::EVENT_BUFFER_UNREGISTERED:
                 $this->scribe->createCache($event, $eventdata);
                 break;
         }

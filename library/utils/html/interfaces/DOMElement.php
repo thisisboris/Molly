@@ -9,23 +9,22 @@
 
 namespace Molly\library\utils\html\interfaces;
 
-use \Molly\library\utils\html\DOMNode as DOMNode;
-
 interface DOMElement
 {
-    function dump();
+    function getTag();
+    function setTag($tag);
 
-    function createElement($tag, $contents);
-    function deleteElement(DOMNode &$node);
+    function getNodeType();
+    function setNodeType($nodetype);
 
     function &getParent();
-    function setParent(DOMNode &$node);
+    function setParent(DOMElement &$node);
 
     function setChildId($id);
     function getChildId();
 
-    function addChildNode(DOMNode &$node);
-    function removeChildNode(DOMNode &$node);
+    function addChildNode(DOMElement &$node);
+    function removeChildNode(DOMElement &$node);
 
     function hasChildNodes();
 
@@ -35,9 +34,5 @@ interface DOMElement
     function &getFirstChild();
     function &getLastChild();
 
-    function getElementById($id);
-    function getElementsById($id, $idx = null);
-
-    function getElementByTagName($name);
-    function getElementsByTagName($name, $idx = null);
+    function &getRoot();
 }

@@ -10,7 +10,7 @@
 namespace Molly\library\events\abstracts;
 
 // "Imports"
-use Molly\library\events\Event;
+use Molly\library\events\interfaces\Event;
 use Molly\library\events\interfaces\EventDispatcher;
 use Molly\library\events\interfaces\EventHandler;
 use Molly\library\events\exceptions\InvalidEventHandlerException;
@@ -29,7 +29,7 @@ abstract class AbstractEventDispatcher implements EventDispatcher
     {
         if ($event instanceof Event) {
             $type = $event->getEventType();
-            if (is_array($this->registeredHandlers[$type])) {
+            if (array_key_exists($type, $this->registeredHandlers) && is_array($this->registeredHandlers[$type])) {
                 foreach ($this->registeredHandlers[$type] as $handlerInfo) {
                     $handler = $handlerInfo['handler'];
                     $handler->handleEvent($type, $event);
@@ -48,7 +48,7 @@ abstract class AbstractEventDispatcher implements EventDispatcher
      * @return mixed|void
      * @throws \Molly\library\events\exceptions\InvalidEventHandlerException
      */
-    public function addEventListener($eventType, &$eventHandler) {
+    public function addEventListener($eventType, EventHandler &$eventHandler) {
         $interfaces = class_implements($eventHandler);
         if (isset($interfaces['Molly\library\events\interfaces\EventHandler'])) {
             $temp = new MollyArray($this->registeredHandlers);

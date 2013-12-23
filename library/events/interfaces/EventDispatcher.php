@@ -9,8 +9,6 @@
 
 namespace Molly\library\events\interfaces;
 
-use \Molly\library\events\Event;
-
 interface EventDispatcher
 {
     /**
@@ -20,7 +18,7 @@ interface EventDispatcher
      * @param $eventHandler
      * @return mixed
      */
-    function addEventListener($eventType, &$eventHandler);
+    function addEventListener($eventType, EventHandler &$eventHandler);
 
     /**
      * Function to remove eventhandlers from handler's list.
