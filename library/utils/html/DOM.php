@@ -159,7 +159,7 @@ class DOM extends AbstractDOMElement implements DOMElement
      * @return DOMNode;
      * Sets the rootnode to a specific DOMNode.
      */
-    protected function setRootNode(DOMNode &$node) {
+    function setRootNode(DOMNode &$node) {
         return $this->rootNode = $node;
     }
 

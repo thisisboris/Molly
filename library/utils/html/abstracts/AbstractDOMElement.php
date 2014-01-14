@@ -378,8 +378,12 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
         $this->nodeType = $nodeType;
     }
 
-    function &getRoot() {
-        return $this->getParent()->getRoot();
+    function &getRootNode() {
+        return $this->getParent()->getRootNode();
+    }
+
+    function &setRootNode(DOMNode $node) {
+        return $this->getParent()->setRootNode($node);
     }
 
     /**
@@ -653,7 +657,8 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
         $node = null;
 
         while ($this->cursor < $this->original_size) {
-            echo "while ($this->cursor < $this->original_size) { ";
+            echo "while ($this->cursor < $this->original_size) { <br/>";
+
             // Get next char
             $this->character = (isset($this->rawHTML[$this->cursor + 1]) ? $this->rawHTML[$this->cursor + 1] : null);
 
@@ -662,7 +667,7 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
                     case '!':
                         // Check for comment tag,
                         if ($this->rawHTML[$this->cursor + 2] == '-' && $this->rawHTML[$this->cursor + 3] == '-') {
-                            $node = new DOMNode($this->getRoot(), $this);
+                            $node = new DOMNode($this->getRootNode(), $this);
                             $node->setNodeType(AbstractDOMElement::TYPE_COMMENT);
                             $node->setRawHTML(substr($this->rawHTML, $this->cursor, strpos($this->rawHTML, '>', $this->cursor)));
 
@@ -704,7 +709,7 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
                             $attributes = array();
                             preg_match_all('[\w]+[\=]([\']([\w]+[\ ]*)*[\']|[\"]([\w]+[\ ]*)*[\"])', $tagcontents, $attributes);
 
-                            $node = new DOMNode($this->getRoot(), $this);
+                            $node = new DOMNode($this->getRootNode(), $this);
                             $node->setTag($suggested_tag);
 
                             foreach ($attributes as $attributepair){
@@ -736,10 +741,16 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
                     $this->cursor = strpos($this->rawHTML, '<', $this->cursor);
                 }
 
-                $node = new DOMNode($this->getRoot(), $this);
+                $node = new DOMNode($this->getRootNode(), $this);
                 $node->setNodeType(AbstractDOMElement::TYPE_PLAINTEXT);
                 $node->setRawHTML(substr($this->rawHTML, $old_pos, $this->cursor - $old_pos));
-                $this->addChildNode($node);
+
+                if ($this instanceof DOM) {
+                    $this->setRootNode($node);
+                } else if ($this instanceof DOMNode) {
+                    $this->addChildNode($node);
+                }
+
 
 
                 return true;
@@ -754,12 +765,12 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
     }
 
     function startParse() {
-        echo "startparse";
+        echo "startparse <br/>";
         if ($this->getNodeType == self::TYPE_PLAINTEXT) {
             return $this;
         }
 
-        echo "dispatch";
+        echo "dispatch <br/>";
         $this->dispatchEvent(new Event('DOMElement-preload', 'About to start parsing data', $this, $this, self::EVENT_PARSING_START), $this->rawData);
 
         // Set the original size

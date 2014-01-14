@@ -34,5 +34,5 @@ interface DOMElement
     function &getFirstChild();
     function &getLastChild();
 
-    function &getRoot();
+    function &getRootNode();
 }
