@@ -99,8 +99,14 @@ class DOMNode extends AbstractDOMElement
      * If the $parent is optional, if the parent is null, the node will act as a rootnode.
      */
     public function __construct(DOMElement &$domdocument, DOMElement $parent = null) {
-        if (is_null($parent)) $this->rootnode = true;
         $this->domdocument = $domdocument;
+
+        if (is_null($parent)) {
+            $this->rootnode = true;
+            $this->setParent($domdocument);
+        } else {
+            $this->setParent($parent);
+        }
     }
 
     /**

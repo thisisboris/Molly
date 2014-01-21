@@ -154,6 +154,10 @@ class DOM extends AbstractDOMElement implements DOMElement
         }
     }
 
+    function &getDOMDocument() {
+        return $this;
+    }
+
     /**
      * @param DOMNode $node
      * @return DOMNode;
