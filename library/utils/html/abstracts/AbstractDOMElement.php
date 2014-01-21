@@ -644,14 +644,11 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
     }
 
     function startParse() {
+        // Plaintext nodes can't be parsed.
+        if ($this->getNodeType == self::TYPE_PLAINTEXT) return $this;
 
-        echo "startParse called on " . gettype($this) . '::' . get_class($this) . '<br/>';
-
-        if ($this->getNodeType == self::TYPE_PLAINTEXT) {
-            return $this;
-        }
-
-        $this->dispatchEvent(new Event('DOMElement-preload', 'About to start parsing data', $this, $this, self::EVENT_PARSING_START), $this->rawData);
+        // Send out an event to inform everyone we're going to start parsing data
+        $this->dispatchEvent(new Event('DOMElement-preload', 'About to start parsing data', $this, $this, self::EVENT_PARSING_START), $this->rawHTML);
 
         // Set the original size
         $this->original_size = strlen($this->rawHTML);
@@ -661,8 +658,6 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
 
         // Starts parsing, false on completion. Throws HTML-exceptions when html is invalid.
         while ($this->parse());
-
-        $this->size = strlen($this->processedHTML);
 
         // Return this object, so that the parent parser may change his internal cursor.
         return $this;
@@ -677,8 +672,7 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
          * The cursor is thrown ahead to each next character of importance, after which we check
          * if the following characters form a tag.
          *
-         * Tags are recognized by the fact that there is no whitespace between the first and last non-whitespace-
-         * character in between lt & rt;
+         * If they do form a tag, a new
          */
 
 
