@@ -643,12 +643,35 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
         $this->interupted = false;
     }
 
+    function startParse() {
+
+        echo "startParse called on " . gettype($this) . '::' . get_class($this) . '<br/>';
+
+        if ($this->getNodeType == self::TYPE_PLAINTEXT) {
+            return $this;
+        }
+
+        $this->dispatchEvent(new Event('DOMElement-preload', 'About to start parsing data', $this, $this, self::EVENT_PARSING_START), $this->rawData);
+
+        // Set the original size
+        $this->original_size = strlen($this->rawHTML);
+
+        // Reset the cursor
+        $this->cursor = 0;
+
+        // Starts parsing, false on completion. Throws HTML-exceptions when html is invalid.
+        while ($this->parse());
+
+        $this->size = strlen($this->processedHTML);
+
+        // Return this object, so that the parent parser may change his internal cursor.
+        return $this;
+    }
+
     /**
      * @throws HTMLStructureException
      */
     protected function parse() {
-        echo "parse() called on " . gettype($this) . '::' . get_class($this) . '<br/>';
-
         /**
          * This function is called for every possible element contained within this DOMElement.
          * The cursor is thrown ahead to each next character of importance, after which we check
@@ -671,7 +694,6 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
         $node = null;
 
         while ($this->cursor < $this->original_size) {
-
             if ($this->rawHTML[$this->cursor] === '<') {
                 echo "Nodestart detected at position: " . $this->cursor . "<br/><br/>";
 
@@ -682,7 +704,7 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
                         echo 'Possible comment-tag detected<br/>';
                         // Check for comment tag,
                         if ($this->rawHTML[$this->cursor + 2] == '-' && $this->rawHTML[$this->cursor + 3] == '-') {
-                            $node = new DOMNode($this->getRootNode(), $this);
+                            $node = new DOMNode($this->getDOMDocument(), $this);
                             $node->setNodeType(AbstractDOMElement::TYPE_COMMENT);
                             $node->setRawHTML(substr($this->rawHTML, $this->cursor, strpos($this->rawHTML, '>', $this->cursor)));
 
@@ -691,19 +713,15 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
                     break;
 
                     case '/':
-                        echo 'Possible closing tag<br/>';
                         // Check if there is only 1 word between the cursor and the closest '>'
-                        echo "Closest '>' :: " . $rt = strpos($this->rawHTML, '>', $this->cursor);
-                        echo $possible_closing_tag = substr($this->rawHTML, $this->cursor, $this->cursor - $rt) . '<br>';
+                        $rt = strpos($this->rawHTML, '>', $this->cursor);
 
+                        $possible_closing_tag = substr($this->rawHTML, $this->cursor + 2, $rt - $this->cursor);
 
-                        if ( $rt !== false && preg_match("^\/[\w-:]+$", $possible_closing_tag)) {
-                            echo "Checks out as an closing tag<br/>";
-
+                        if ( $rt !== false && preg_match('$[\/][\w]+$', $possible_closing_tag)) {
                             if (strtolower($possible_closing_tag) == $this->getTag()) {
-                                echo 'Is the correct closing tag. Finish parsing this tag.';
-
                                 $this->cursor = $rt;
+                                $this->setRawHTML(substr($this->rawHTML, 0, $this->cursor));
                                 return false;
                             } else {
                                 throw new HTMLStructureException("Malformed HTML. Found closing tag: " . $possible_closing_tag . " expected: " . $this->getTag());
@@ -720,7 +738,6 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
                     break;
 
                     default:
-                        echo "Default action when '<' is found<br/>";
                         $suggested_tag = substr($this->rawHTML, $this->cursor + 1,  min(strpos($this->rawHTML, '>', $this->cursor), strpos($this->rawHTML, ' ', $this->cursor)) - 1 - $this->cursor);
 
                         // If tag exists.
@@ -730,17 +747,19 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
                             $rt = strpos($this->rawHTML, '>', $this->cursor);
                             $tagcontents = substr($this->rawHTML, $this->cursor + 1 /* Add one to remove the '<' */ + strlen($suggested_tag) /* add to remove the tag itself */, $rt - $this->cursor);
 
-                            // Catch all attribute=value pairs.
-                            $attributes = $this->findAttributes($tagcontents);
-
                             if ($this instanceof DOM) {
                                 $node = new DOMNode($this, $this);
                                 $this->setRootNode($node);
                             } else if ($this instanceof DOMNode) {
                                 $node = new DOMNode($this->getDOMDocument(), $this);
+                                $this->addChildNode($node);
                             }
 
                             $node->setTag($suggested_tag);
+                            $node->setNodeType(AbstractDOMElement::TYPE_DEFAULT);
+
+                            // Catch all attribute=value pairs.
+                            $attributes = $this->parseAttributes($tagcontents);
 
                             foreach ($attributes as $attributepair){
                                 $attribute = explode('=', $attributepair);
@@ -751,7 +770,6 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
                             $this->cursor = $rt+1;
 
                             // Pass along all leftover data.
-
                             $node->setRawHTML(substr($this->rawHTML, $rt));
                             $node->startParse();
 
@@ -764,42 +782,27 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
                 // Treat like noise, not a tag. Move the cursor up one and return a true so the loop continues..
                 $this->cursor++;
                 return true;
-            } else {
-                echo 'Not a tag start, so either tag-contents or just plain old text.<br/>';
-                echo "CURSOR:: " . $this->cursor++ . '<br/>';
+            } /* else {
+                // This is plaintext between the nodes.
+                $node = new DOMNode($this->getDOMDocument(), $this);
+                $node->setNodeType(AbstractDOMElement::TYPE_PLAINTEXT);
+
+                // Find closest '<'.
+                $rt = strpos($this->rawHTML, '<', $this->cursor);
+                $node->setRawHTML(substr($this->rawHTML, $this->cursor, $rt - $this->cursor));
+
+                $this->cursor = $rt;
                 return true;
-            }
+            }*/
+
+            // To make sure we do not have never-ending loops, increment our cursor here.
+            $this->cursor++;
         }
 
         return false;
     }
 
-    function startParse() {
-        echo "startParse Called on " . gettype($this) . "::" . get_class($this) . '<br/>';
-
-        if ($this->getNodeType == self::TYPE_PLAINTEXT) {
-            return $this;
-        }
-
-        $this->dispatchEvent(new Event('DOMElement-preload', 'About to start parsing data', $this, $this, self::EVENT_PARSING_START), $this->rawData);
-
-        // Set the original size
-        $this->original_size = strlen($this->rawHTML);
-        echo "pre-parse size: " . $this->original_size . "<br/><br/>";
-
-        // Reset the cursor
-        $this->cursor = 0;
-
-        // Starts parsing, false on completion. Throws HTML-exceptions when html is invalid.
-        while ($this->parse());
-
-        $this->size = strlen($this->processedHTML);
-
-        // Return this object, so that the parent parser may change his internal cursor.
-        return $this;
-    }
-
-    private function findAttributes($attributes) {
+    private function parseAttributes($attributes) {
         $cursor = 0;
 
         $attributeName = true;
