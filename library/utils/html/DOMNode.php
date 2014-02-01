@@ -142,47 +142,59 @@ class DOMNode extends AbstractDOMElement
      * The __toString() method recreates the node a html-string.
      */
     function __toString() {
-        if ($this->getNodeType() == AbstractDOMElement::TYPE_PLAINTEXT) {
-            return $this->rawHTML;
-        } else {
-            $returnvalue = '<';
-            $returnvalue .= $this->tag;
+        $returnval = "";
+        switch ($this->getNodeType()) {
+            default:
+            case AbstractDOMElement::TYPE_DEFAULT:
+                $returnval = '<';
+                $returnval .= $this->getTag();
 
-            foreach ($this->attributes as $identifier => $value) {
-                $returnvalue .= ' ' . $identifier . '="';
-                if (is_array($value)) {
-                    $temp = new MollyArray($value);
-                    $returnvalue .= $temp->flatten();
-                    unset($temp);
-                } elseif (is_string($value)) {
-                    $returnvalue .= $value;
-                } elseif (is_object($value)) {
-                    $returnvalue .= $value->__toString();
+                // Now at all attributes
+                foreach ($this->getAttributes() as $identifier => $value) {
+                    $returnval .= ' ' . $identifier . '="';
+                    if (is_array($value)) {
+                        $temp = new MollyArray($value);
+                        $returnval .= $temp->flatten();
+                        unset($temp);
+                    } elseif (is_string($value)) {
+                        $returnval .= $value;
+                    } elseif (is_object($value)) {
+                        $returnval .= $value->__toString();
+                    }
+                    $returnval .= '"';
+
                 }
-                $returnvalue .= '"';
-            }
+                $returnval .= '>';
 
-            /**
-             * @TODO Implement javascript actions the way they are implemented in Java's JSF/JSP/Expression Lang.
-             */
-
-            if (!$this->selfClosing) {
-                $returnvalue .= ">";
-
-                foreach ($this as $child) {
-                    if ($child instanceof DOMNode) {
-                        $returnvalue .= $child->__toString();
+                // Loop all kids!
+                if ($this->hasChildNodes()) {
+                    foreach ($this as $child) {
+                        $returnval .= $child;
                     }
                 }
 
-                $returnvalue .= "</" . $this->tag . ">";
+                $returnval .= '</';
+                $returnval .= $this->getTag() . '>';
 
-            } else {
-                $returnvalue .=  "/>";
-            }
+            break;
 
-            return $returnvalue;
+            case AbstractDOMElement::TYPE_SELFCLOSING:
+                $returnval .= '<';
+                $returnval .= $this->getTag();
+                $returnval .= "/>";
+            break;
+
+            case AbstractDOMElement::TYPE_PLAINTEXT:
+                $returnval .= $this->rawHTML;
+            break;
+
+            case AbstractDOMElement::TYPE_COMMENT:
+            case AbstractDOMElement::TYPE_DOCTYPE:
+
+            break;
         }
+
+        return $returnval;
     }
 
     /**
@@ -322,22 +334,6 @@ class DOMNode extends AbstractDOMElement
         } else {
             throw new IllegalArgumentException($array, "Array");
         }
-    }
-
-    public function setNodeType($type) {
-        $this->nodetype = $type;
-    }
-
-    public function getNodeType() {
-        return $this->nodetype;
-    }
-
-    public function setTag($tag) {
-        $this->tag = $tag;
-    }
-
-    public function getTag() {
-        return $this->tag;
     }
 
     /**

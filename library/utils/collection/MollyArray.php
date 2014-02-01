@@ -27,7 +27,8 @@ class MollyArray
         unset($this->_array);
     }
 
-    function __get() {
+    function __get($argument) {
+        echo "tried to get " . $argument . "<br/>";
         return false;
     }
 

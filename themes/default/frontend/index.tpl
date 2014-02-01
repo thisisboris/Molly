@@ -1,4 +1,4 @@
-<html test="attribute" other="another">
+<html>
 <head>
     <title>Molly</title>
 </head>
@@ -7,10 +7,15 @@
         <header>
             <div class="container">
                 <div id="head">
+                    <!-- This is a comment tag between divhead and alogo -->
                     <a href="" class="logo" theme="logo">
+                        <br/>
+                            Test test test
+                        <br/>
                         <span class="replace" theme="website_name">
                             hier hoort website name te staan!
                         </span>
+                        <br/>
                     </a>
                 </div>
                 <nav class="navigation">

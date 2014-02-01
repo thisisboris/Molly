@@ -202,7 +202,24 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
      */
     function getTag()
     {
-        return $this->tag;
+        switch ($this->getNodeType()) {
+            case AbstractDOMElement::TYPE_SELFCLOSING:
+            default:
+                return $this->tag;
+            break;
+
+            case AbstractDOMElement::TYPE_PLAINTEXT:
+                return 'PLAINTEXT-NODES DO NOT HAVE A TAG';
+            break;
+
+            case AbstractDOMElement::TYPE_COMMENT:
+                return 'COMMENT TAG';
+            break;
+
+            case AbstractDOMElement::TYPE_DOCTYPE:
+                return 'DOCTYPE';
+            break;
+        }
     }
 
     function setTag($tag)
@@ -385,8 +402,6 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
     }
 
     function &getRootNode() {
-        echo 'TYPE: ' . gettype($this) . "::" . get_class($this) .  "<br/>";
-
         return $this->getParent()->getRootNode();
     }
 
@@ -689,64 +704,71 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
 
         while ($this->cursor < $this->original_size) {
             if ($this->rawHTML[$this->cursor] === '<') {
-                echo "Nodestart detected at position: " . $this->cursor . "<br/><br/>";
 
                 // Get next char
                 $this->character = (isset($this->rawHTML[$this->cursor + 1]) ? $this->rawHTML[$this->cursor + 1] : null);
                 switch ($this->character) {
                     case '!':
-                        echo 'Possible comment-tag detected<br/>';
                         // Check for comment tag,
                         if ($this->rawHTML[$this->cursor + 2] == '-' && $this->rawHTML[$this->cursor + 3] == '-') {
+
                             $node = new DOMNode($this->getDOMDocument(), $this);
+
                             $node->setNodeType(AbstractDOMElement::TYPE_COMMENT);
                             $node->setRawHTML(substr($this->rawHTML, $this->cursor, strpos($this->rawHTML, '>', $this->cursor)));
+                            $node->setTag($node->rawHTML);
 
                             $this->addChildNode($node);
+
+                            // Update the cursor
+                            $this->cursor = strpos($this->rawHTML, '>', $this->cursor) + 1;
                         }
                     break;
 
                     case '/':
                         // Check if there is only 1 word between the cursor and the closest '>'
                         $rt = strpos($this->rawHTML, '>', $this->cursor);
-
-                        $possible_closing_tag = substr($this->rawHTML, $this->cursor + 2, $rt - $this->cursor-2);
+                        $possible_closing_tag = substr($this->rawHTML, $this->cursor + 2, $rt - $this->cursor - 2);
 
                         if ( $rt !== false && !preg_match('$[\/][\w]+$', $possible_closing_tag)) {
                             if (strtolower($possible_closing_tag) == $this->getTag()) {
-                                $this->cursor = $rt;
-                                $this->setRawHTML(substr($this->rawHTML, 0, $this->cursor));
+                                $this->cursor = $rt + 1;
+                                $this->setRawHTML(substr($this->rawHTML, $this->cursor, strlen($possible_closing_tag)));
                                 return false;
                             } else {
                                 throw new HTMLStructureException("Malformed HTML. Found closing tag: " . $possible_closing_tag . " expected: " . $this->getTag());
-                            }
-                        } else {
-                            // Check if this is a selfclosing tag
-                            if ($this->getNodeType() === AbstractDOMElement::TYPE_SELFCLOSING) {
-
-                                if ($this->rawHTML[$this->cursor + 2] == '>') {
-                                    $this->cursor = $this->cursor + 2;
-                                    return false;
-                                }
                             }
                         }
                     break;
 
                     default:
-                        $suggested_tag = substr($this->rawHTML, $this->cursor + 1,  min(strpos($this->rawHTML, '>', $this->cursor), strpos($this->rawHTML, ' ', $this->cursor)) - 1 - $this->cursor);
+                        $rt = strpos($this->rawHTML, '>', $this->cursor);
+                        $suggested_tag = substr($this->rawHTML, $this->cursor + 1,  min($rt, strpos($this->rawHTML, ' ', $this->cursor)) - 1 - $this->cursor);
+                        $full_html_tag = substr($this->rawHTML, $this->cursor, $rt + 1 - $this->cursor);
 
-                        // If tag exists.
-                        if (in_array(strtolower($suggested_tag), self::$allowed_tags)) {
-                            echo "Processing tag: " . $suggested_tag . '<br/>';
+                        $node = new DOMNode($this->getDOMDocument(), $this);
 
-                            $rt = strpos($this->rawHTML, '>', $this->cursor);
-                            $tagcontents = substr($this->rawHTML, $this->cursor + 1 /* Add one to remove the '<' */ + strlen($suggested_tag) /* add to remove the tag itself */, $rt - $this->cursor);
+                        // Check for self-closing tags
+                        if ($full_html_tag[strlen($full_html_tag) - 2] == '/') {
+
+                            $node->setNodeType(AbstractDOMElement::TYPE_SELFCLOSING);
+                            $node->setTag(rtrim($suggested_tag, '/'));
 
                             if ($this instanceof DOM) {
-                                $node = new DOMNode($this, $this);
+                                throw new HTMLStructureException("Selfclosing tags aren't allowed on the same level as the rootnode");
+                            } else {
+                                $this->addChildNode($node);
+                            }
+
+                            $this->cursor = $rt + 1;
+                            return true;
+
+                        } else if (in_array(strtolower($suggested_tag), self::$allowed_tags)) {
+                            $tagcontents = substr($this->rawHTML, $this->cursor + 1 + strlen($suggested_tag), $rt - $this->cursor);
+
+                            if ($this instanceof DOM) {
                                 $this->setRootNode($node);
                             } else if ($this instanceof DOMNode) {
-                                $node = new DOMNode($this->getDOMDocument(), $this);
                                 $this->addChildNode($node);
                             }
 
@@ -762,10 +784,9 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
                             }
 
                             // Update the cursor so it's set at the end of the current started tag.
-                            $this->cursor = $rt+1;
-
+                            $this->cursor = $rt + 1;
                             // Pass along all leftover data.
-                            $node->setRawHTML(substr($this->rawHTML, $rt));
+                            $node->setRawHTML(substr($this->rawHTML, $this->cursor));
                             $node->startParse();
 
                             $this->cursor += $node->getCursor();
@@ -777,18 +798,21 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
                 // Treat like noise, not a tag. Move the cursor up one and return a true so the loop continues..
                 $this->cursor++;
                 return true;
-            } /* else {
+
+            }  else {
                 // This is plaintext between the nodes.
-                $node = new DOMNode($this->getDOMDocument(), $this);
-                $node->setNodeType(AbstractDOMElement::TYPE_PLAINTEXT);
+                if ($this->rawHTML[$this->cursor] != "\r" && $this->rawHTML[$this->cursor] != "\n" && $this->rawHTML[$this->cursor] != "\n\r" && $this->rawHTML[$this->cursor] != "\t") {
+                    $node = new DOMNode($this->getDOMDocument(), $this);
+                    $node->setNodeType(AbstractDOMElement::TYPE_PLAINTEXT);
 
-                // Find closest '<'.
-                $rt = strpos($this->rawHTML, '<', $this->cursor);
-                $node->setRawHTML(substr($this->rawHTML, $this->cursor, $rt - $this->cursor));
-
-                $this->cursor = $rt;
-                return true;
-            }*/
+                    // Find closest '<'.
+                    $rt = strpos($this->rawHTML, '<', $this->cursor);
+                    $node->setRawHTML(substr($this->rawHTML, $this->cursor, $rt - $this->cursor));
+                    $this->addChildNode($node);
+                    $this->cursor = $rt;
+                    return true;
+                }
+            }
 
             // To make sure we do not have never-ending loops, increment our cursor here.
             $this->cursor++;

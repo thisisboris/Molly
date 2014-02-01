@@ -65,7 +65,6 @@ class Theme {
         // Run the parser.
         $this->parse();
 
-
         return $this->template;
     }
 
@@ -86,21 +85,9 @@ class Theme {
                 )
         );
 
-        $this->quickLoop($this->template);
+        // Call our nifty to string method
+        echo $this->template->getRootNode();
         die();
-    }
-
-    private function quickLoop(DOMElement $node) {
-        echo "< " . $node->getTag() . ' ></br>';
-
-        if ($node->hasChildNodes()) {
-            $children = $node->getChildNodes();
-            foreach ($children as $childnode) {
-                $this->quickLoop($childnode);
-            }
-        }
-
-        echo '< / ' . $node->getTag() . ' ></br>';
     }
 
     private function parseElement(DOMElement $node, DOMElement $parentElement = null, $elementVariables = null) {
