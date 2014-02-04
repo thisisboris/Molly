@@ -5,34 +5,7 @@ namespace Molly\library\utils\html;
  * @class DOM
  * @author Boris Wintein - <hello@thisisboris.be>;
  * @description
- * This is the DOMDocument class containing the rootnode, and all information about the DOMDocument itself.
  *
- * I cleaned up these classes. Original allowed for incorrectly closed HTML-tags, I do not allow it. Forcing
- * frontenders to write correct HTML both helps them and helps us in general. Don't allow for small mistakes,
- * and they'll learn not to make them. These people are grown ups, they should deal with it.
- *
- * Other changes are the extra functions and possibility to easily loop through childnodes (since nodes
- * implement the iterator-interface) and manipulate them. Overal these classes have been tweaked to work
- * seamless with the templating engine provided by our library.
- *
- * All credit for the original parsing algorithm (which I slightly changed, so that it would work with the new
- * structure) goes to the contributors listed below. I couldn't have written anything better, so I didn't
- * reinvent the wheel. Just yet.
- *
- * Website: http://sourceforge.net/projects/simplehtmldom/
- * Acknowledge: Jose Solorzano (https://sourceforge.net/projects/php-html/)
- * Contributions by:
- *     Yousuke Kumakura (Attribute filters)
- *     Vadim Voituk (Negative indexes supports of "find" method)
- *     Antcs (Constructor with automatically load contents either text or file/url)
- *
- * Licensed under The MIT License
- * Redistributions of files must retain the above copyright notice.
- *
- * @author S.C. Chen <me578022@gmail.com>
- * @author John Schlick
- * @author Rus Carroll
- * @version 1.5 ($Rev: 196 $)
  *
  */
 
