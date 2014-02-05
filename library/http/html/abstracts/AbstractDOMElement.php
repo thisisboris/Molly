@@ -16,6 +16,7 @@ use Molly\library\http\html\exceptions\HTMLStructureException;
 use \Molly\library\http\html\interfaces\DOMElement;
 
 use \Molly\library\http\html\DOMNode;
+use Molly\library\http\html\nodetypes\LinkNode;
 use Molly\library\http\html\nodetypes\MetaNode;
 
 abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOMElement, \Iterator
@@ -28,6 +29,7 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
     const EVENT_PARSING_NEW_NODE = 'EVENT_PARSE_NEW_NODE';
 
     const EVENT_METANODE_CREATED = 'EVENT_METANODE_CREATED';
+    const EVENT_LINKNODE_CREATED = 'EVENT_LINKNODE_CREATED';
 
     // http://www.w3schools.com/tags/
     const TYPE_COMMENT = 0;
@@ -464,7 +466,7 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
      * @throws HTMLStructureException
      */
     function addChildNode(DOMElement &$node) {
-        if (in_array($node, $this->children)) {
+        if ($this->hasChildNode($node) === true) {
             throw new HTMLStructureException("DOMNode is already a child of this parent. You should clone your nodes to add copies");
         } else if ($this->getNodeType() === self::TYPE_SELFCLOSING) {
             // Selfclosing tags are unable to have children, as they close themselves.
@@ -512,7 +514,7 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
         }
     }
 
-    function hasChildNode(DOMNode $node) {
+    function hasChildNode(DOMElement &$node) {
         return in_array($node, $this->children);
     }
 
@@ -760,8 +762,6 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
                         $suggested_tag = substr($this->rawHTML, $this->cursor + 1,  min($rt, strpos($this->rawHTML, ' ', $this->cursor)) - 1 - $this->cursor);
                         $full_html_tag = substr($this->rawHTML, $this->cursor, $rt + 1 - $this->cursor);
 
-
-
                         // Check for self-closing tags
                         if ($full_html_tag[strlen($full_html_tag) - 2] == '/') {
                             $node = new DOMNode($this->getDOMDocument(), $this);
@@ -774,28 +774,49 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
                                 $this->addChildNode($node);
                             }
 
-                            $this->startParse();
-                            $this->cursor = $rt + 1;
+                            $node->startParse();
+                            $this->cursor += strlen($full_html_tag);
                             return true;
 
                         // Check for meta-tag
                         } else if ($suggested_tag === 'meta') {
+
                             $node = new MetaNode($this->getDOMDocument(), $this);
                             $tagcontents = substr($this->rawHTML, $this->cursor + 1 + strlen($suggested_tag), $rt - $this->cursor);
 
                             $node->setTag('meta');
                             $node->setNodeType(AbstractDOMElement::TYPE_SELFCLOSING);
 
-                            $this->getDOMDocument()->addMetaNode($node);
                             $this->addChildNode($node);
+                            $this->getDOMDocument()->addMetaNode($node);
 
                             $attributes = $this->parseAttributes($tagcontents);
-                            foreach ($attributes as $attributepair){
-                                $attribute = explode('=', $attributepair);
-                                $this->setAttribute($attribute[0], str_replace('\"', '', str_replace('\'', '', $attribute)));
+
+                            foreach ($attributes as $attribute_name => $attribute_value){
+                                $node->setAttribute($attribute_name, str_replace(array('\"','\''), '', $attribute_value));
                             }
 
-                            $this->cursor = $rt + 1;
+                            $this->cursor += strlen($full_html_tag);
+                            return true;
+
+                        // Check for link tags
+                        } else if ($suggested_tag === 'link') {
+
+                            $node = new LinkNode($this->getDOMDocument(), $this);
+                            $tagcontents = substr($this->rawHTML, $this->cursor + 1 + strlen($suggested_tag), $rt - $this->cursor);
+                            $node->setTag('link');
+                            $node->setNodeType(AbstractDOMElement::TYPE_SELFCLOSING);
+
+                            $this->addChildNode($node);
+                            $this->getDOMDocument()->addLinkNode($node);
+
+                            $attributes = $this->parseAttributes($tagcontents);
+
+                            foreach ($attributes as $attribute_name => $attribute_value){
+                                $node->setAttribute($attribute_name, str_replace(array('\"','\''), '', $attribute_value));
+                            }
+
+                            $this->cursor += strlen($full_html_tag);
                             return true;
 
                         } else if (in_array(strtolower($suggested_tag), self::$allowed_tags)) {
@@ -814,13 +835,12 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
                             // Catch all attribute=value pairs.
                             $attributes = $this->parseAttributes($tagcontents);
 
-                            foreach ($attributes as $attributepair){
-                                $attribute = explode('=', $attributepair);
-                                $this->setAttribute($attribute[0], str_replace('\"', '', str_replace('\'', '', $attribute)));
+                            foreach ($attributes as $attribute_name => $attribute_value){
+                                $node->setAttribute($attribute_name, str_replace(array('\"','\''), '', $attribute_value));
                             }
 
                             // Update the cursor so it's set at the end of the current started tag.
-                            $this->cursor = $rt + 1;
+                            $this->cursor += strlen($full_html_tag);
                             // Pass along all leftover data.
                             $node->setRawHTML(substr($this->rawHTML, $this->cursor));
                             $node->startParse();
@@ -842,10 +862,10 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
                 $node->setNodeType(AbstractDOMElement::TYPE_PLAINTEXT);
 
                 // Find closest '<'.
-                $rt = strpos($this->rawHTML, '<', $this->cursor);
-                $node->setRawHTML(substr($this->rawHTML, $this->cursor, $rt - $this->cursor));
+                $lt = strpos($this->rawHTML, '<', $this->cursor);
+                $node->setRawHTML(substr($this->rawHTML, $this->cursor, $lt - $this->cursor));
                 $this->addChildNode($node);
-                $this->cursor = $rt;
+                $this->cursor = $lt;
                 return true;
             }
 
@@ -868,7 +888,6 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
         $result = array();
 
         while ($cursor < strlen($attributes)) {
-
             if ($attributeName) {
                 if ($attributes[$cursor] == "=") {
                     $key = trim($key);
@@ -877,13 +896,16 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
                     $key .= $attributes[$cursor];
                 }
             } else {
-                if ($attributes[$cursor] == "\"" && $firstQuote) {
+                if (($attributes[$cursor] == "\"" || $attributes[$cursor] == "\'") && $firstQuote) {
                     $firstQuote = false;
                     $result[$key] = $value;
+
+                    // Reset the key/value
                     $key = "";
                     $value = "";
                     $attributeName = true;
-                } else if ($attributes[$cursor] == "\"") {
+
+                } else if ($attributes[$cursor] == "\"" || $attributes[$cursor] == "\'") {
                     $firstQuote = true;
                 } else {
                     $value .= $attributes[$cursor];

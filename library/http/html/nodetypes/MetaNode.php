@@ -15,14 +15,20 @@ use Molly\library\events\Event;
 use Molly\library\http\html\DOMNode;
 
 class MetaNode extends DOMNode {
-
-
     public function getName() {
-        return $this->attributes['name'];
+        if (isset($this->attributes['name'])) {
+            return $this->attributes['name'];
+        } else {
+            return false;
+        }
     }
 
     public function getContent() {
-        return $this->attributes['content'];
+        if (isset($this->attributes['content'])) {
+            return $this->attributes['content'];
+        } else {
+            return false;
+        }
     }
 
     public function setName($name) {

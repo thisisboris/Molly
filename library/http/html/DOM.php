@@ -15,6 +15,8 @@ use Molly\library\http\html\abstracts\AbstractDOMElement;
 use \Molly\library\http\html\exceptions\HTMLStructureException;
 use \Molly\library\http\html\interfaces\DOMElement;
 
+use Molly\library\http\html\nodetypes\LinkNode;
+use Molly\library\http\html\nodetypes\MetaNode;
 use \Molly\library\io\dataloaders\files\File;
 
 class DOM extends AbstractDOMElement
@@ -130,16 +132,33 @@ class DOM extends AbstractDOMElement
         }
     }
 
+    function &getLinkNodes() {
+        return $this->linknodes;
+    }
+
+    function hasLinkNodes() {
+        return isset($this->linkNodes) && !empty($this->linkNodes);
+    }
+
+    function addLinkNode(LinkNode &$node) {
+        $this->linkedNodes[] = $node;
+        // Get the <head>-tag so that we can add the meta tag as a child
+        if ($headtag = $this->getHeadNode()) {
+            if ($headtag->hasChildNode($node) === false) {
+                $headtag->addChildNode($node);
+            }
+        }
+    }
+
     /*
      * @return array
      * Returns an array with all the META-tags as nodes
      */
     function &getMetaNodes() {
-
+        return $this->metanodes;
     }
 
-
-    function hasMetaNode($name) {
+    function hasMetaNode(&$name) {
         return isset($this->metanodes[$name]) && is_null($this->metanodes[$name]);
     }
 
@@ -152,18 +171,20 @@ class DOM extends AbstractDOMElement
 
     }
 
-    function addMetaNode(MetaNode &$node, $overwrite = false) {
+    function &addMetaNode(MetaNode &$node, $overwrite = false) {
         if (!$overwrite && $this->hasMetaNode($node->getName())){
             throw new OverwriteException('metanode ' . $node->getName(), $this->getMetaNode($node->getName())->getContent(), $node->getContent());
         } else {
             $this->metanodes[$node->getName()] = $node;
             // Get the <head>-tag so that we can add the meta tag as a child
             if ($headtag = $this->getHeadNode()) {
-                if (!$headtag->hasChildNode($node)) {
+                if ($headtag->hasChildNode($node) === false) {
                     $headtag->addChildNode($node);
                 }
             }
         }
+
+        return $node;
     }
 
     function &getHeadNode() {
