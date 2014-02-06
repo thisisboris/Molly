@@ -16,19 +16,12 @@ use Molly\library\http\html\DOMNode;
 
 class MetaNode extends DOMNode {
     public function getName() {
-        if (isset($this->attributes['name'])) {
-            return $this->attributes['name'];
-        } else {
-            return false;
-        }
+        // Check for meta-tag
+        return $this->getAttribute('name');
     }
 
     public function getContent() {
-        if (isset($this->attributes['content'])) {
-            return $this->attributes['content'];
-        } else {
-            return false;
-        }
+        return $this->getAttribute('content');
     }
 
     public function setName($name) {

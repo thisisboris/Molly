@@ -21,6 +21,8 @@ class MollyArray
         } else {
             throw new ConstructException();
         }
+
+        return $this;
     }
 
     function __destroy() {
@@ -28,7 +30,6 @@ class MollyArray
     }
 
     function __get($argument) {
-        echo "tried to get " . $argument . "<br/>";
         return false;
     }
 

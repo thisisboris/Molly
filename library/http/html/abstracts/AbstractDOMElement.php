@@ -18,6 +18,7 @@ use \Molly\library\http\html\interfaces\DOMElement;
 use \Molly\library\http\html\DOMNode;
 use Molly\library\http\html\nodetypes\LinkNode;
 use Molly\library\http\html\nodetypes\MetaNode;
+use Molly\library\utils\collection\MollyArray;
 
 abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOMElement, \Iterator
 {
@@ -64,9 +65,6 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
 
     // Defaults
     const DEFAULT_TARGET_CHARSET = 'UTF-8';
-
-    const DEFAULT_BR_TEXT = "\r\n";
-    const DEFAULT_SPAN_TEXT = "";
 
     /**
      * @var DOMNode $parent
@@ -134,7 +132,7 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
      * @var $size int
      * Contains current size of the HTMLString. (Post parse)
      */
-    protected $size;
+    protected $parse_size;
 
     /**
      * @var $original_size int
@@ -147,12 +145,6 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
      * Current location of the parsing.
      */
     protected $cursor;
-
-    /**
-     * @var $defaultBR
-     * Contains the default BR text, invalid BR tags are replaced with this.
-     */
-    protected $defaultBR;
 
     /**
      * @var $defaultSpan
@@ -311,8 +303,11 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
      */
     function getAttributes() {
         $return = $this->attributes;
-        if (isset($return['class'])) {
-            $return['class'] = implode(" ", $return['class']);
+        foreach ($return as $attribute => $value) {
+            if (is_array($value)) {
+                $temp = new MollyArray($value);
+                $return[$attribute] = $temp->flatten();
+            }
         }
         return $return;
     }
@@ -644,6 +639,11 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
         $this->original_size = strlen($string);
     }
 
+    public function setDefaultSpanText($spantext) {
+        $this->defaultSpan = $spantext;
+    }
+
+
     public function getCursor() {
         return $this->cursor;
 }
@@ -762,25 +762,8 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
                         $suggested_tag = substr($this->rawHTML, $this->cursor + 1,  min($rt, strpos($this->rawHTML, ' ', $this->cursor)) - 1 - $this->cursor);
                         $full_html_tag = substr($this->rawHTML, $this->cursor, $rt + 1 - $this->cursor);
 
-                        // Check for self-closing tags
-                        if ($full_html_tag[strlen($full_html_tag) - 2] == '/') {
-                            $node = new DOMNode($this->getDOMDocument(), $this);
-                            $node->setNodeType(AbstractDOMElement::TYPE_SELFCLOSING);
-                            $node->setTag(rtrim($suggested_tag, '/'));
-
-                            if ($this instanceof DOM) {
-                                throw new HTMLStructureException("Selfclosing tags aren't allowed on the same level as the rootnode");
-                            } else {
-                                $this->addChildNode($node);
-                            }
-
-                            $node->startParse();
-                            $this->cursor += strlen($full_html_tag);
-                            return true;
-
                         // Check for meta-tag
-                        } else if ($suggested_tag === 'meta') {
-
+                        if ($suggested_tag === 'meta') {
                             $node = new MetaNode($this->getDOMDocument(), $this);
                             $tagcontents = substr($this->rawHTML, $this->cursor + 1 + strlen($suggested_tag), $rt - $this->cursor);
 
@@ -819,7 +802,24 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
                             $this->cursor += strlen($full_html_tag);
                             return true;
 
-                        } else if (in_array(strtolower($suggested_tag), self::$allowed_tags)) {
+                        // Check for selfclosing tags
+                        } else if ($full_html_tag[strlen($full_html_tag) - 2] == '/') {
+                                $node = new DOMNode($this->getDOMDocument(), $this);
+                                $node->setNodeType(AbstractDOMElement::TYPE_SELFCLOSING);
+                                $node->setTag(rtrim($suggested_tag, '/'));
+
+                                if ($this instanceof DOM) {
+                                    throw new HTMLStructureException("Selfclosing tags aren't allowed on the same level as the rootnode");
+                                } else {
+                                    $this->addChildNode($node);
+                                }
+
+                                $node->startParse();
+                                $this->cursor += strlen($full_html_tag);
+                                return true;
+
+                            }  else if (in_array(strtolower($suggested_tag), self::$allowed_tags)) {
+
                             $node = new DOMNode($this->getDOMDocument(), $this);
                             $tagcontents = substr($this->rawHTML, $this->cursor + 1 + strlen($suggested_tag), $rt - $this->cursor);
 
@@ -844,6 +844,13 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
                             // Pass along all leftover data.
                             $node->setRawHTML(substr($this->rawHTML, $this->cursor));
                             $node->startParse();
+
+                            if ($this->defaultSpan !== null && $node->getTag() === 'span' && !$node->hasChildNodes()) {
+                                $child = new DOMNode($this->getDOMDocument(), $node);
+                                $child->setNodeType(AbstractDOMElement::TYPE_PLAINTEXT);
+                                $child->setRawHTML($this->defaultSpan);
+                                $node->addChildNode($child);
+                            }
 
                             $this->cursor += $node->getCursor();
                             return true;

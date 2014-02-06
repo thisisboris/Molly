@@ -15,10 +15,9 @@ use \Molly\library\exceptions\IllegalArgumentException;
 
 use \Molly\library\utils\collection\MollyArray;
 
-use \Molly\library\utils\html\DOMFactory;
-use \Molly\library\utils\html\DOM;
-use \Molly\library\utils\html\DOMNode;
-use \Molly\library\utils\html\interfaces\DOMElement;
+use \Molly\library\http\html\DOM;
+use \Molly\library\http\html\DOMNode;
+use \Molly\library\http\html\interfaces\DOMElement;
 
 class Theme {
     private static $singleton;

@@ -226,7 +226,7 @@ class DOM extends AbstractDOMElement
      */
     protected function setContent($html) {
         // Set initial size.
-        $this->size = $this->original_size = strlen($html);
+        $this->parse_size = $this->original_size = strlen($html);
         $this->setRawHTML($html);
     }
 
