@@ -9,6 +9,8 @@
 
 namespace Molly\library\http\html\interfaces;
 
+use Molly\library\http\html\nodetypes\FormNode;
+
 interface DOMElement
 {
     function getTag();
@@ -37,4 +39,10 @@ interface DOMElement
     function &setRootNode(DOMElement &$node);
     function &getRootNode();
     function &getDomDocument();
+
+    /**
+     * @return FormNode
+     * Added to make it possible for inputnodes to directly fetch their formnode upon parse.
+     */
+    function &getForm();
 }

@@ -16,6 +16,8 @@ use Molly\library\http\html\exceptions\HTMLStructureException;
 use \Molly\library\http\html\interfaces\DOMElement;
 
 use \Molly\library\http\html\DOMNode;
+use Molly\library\http\html\nodetypes\FormNode;
+use Molly\library\http\html\nodetypes\formnodes\InputNode;
 use Molly\library\http\html\nodetypes\LinkNode;
 use Molly\library\http\html\nodetypes\MetaNode;
 use Molly\library\utils\collection\MollyArray;
@@ -395,6 +397,14 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
         return $this->getParent()->setRootNode($node);
     }
 
+    function &getForm() {
+        if (isset($this->parent)) {
+            return $this->getParent()->getForm();
+        } else {
+            return false;
+        }
+    }
+
     /**
      * Returns the reference to the parent domnode.
      * @return \Molly\library\http\html\interfaces\DOMElement
@@ -502,7 +512,11 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
             unset($this->children[$node->getChildId()]);
             return true;
         } else if ($node->getParent() == null) {
-            // We can assume the node doesn't have a parent.
+            /**
+             * Since we use methods to change the parent, we can assume that a node with parent == null is not related
+             * by blood or anything else to this node. Unless he's a bastard.
+             * if($node->getName() == 'Jon Snow') die('You know nothing Jon Snooooooow');
+             */
             return true;
         } else {
             return false;
@@ -762,99 +776,166 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
                         $suggested_tag = substr($this->rawHTML, $this->cursor + 1,  min($rt, strpos($this->rawHTML, ' ', $this->cursor)) - 1 - $this->cursor);
                         $full_html_tag = substr($this->rawHTML, $this->cursor, $rt + 1 - $this->cursor);
 
-                        // Check for meta-tag
-                        if ($suggested_tag === 'meta') {
-                            $node = new MetaNode($this->getDOMDocument(), $this);
-                            $tagcontents = substr($this->rawHTML, $this->cursor + 1 + strlen($suggested_tag), $rt - $this->cursor);
+                        switch ($suggested_tag) {
+                            /**
+                             * Check for metatags, they have their own class.
+                             */
+                            case 'meta':
 
-                            $node->setTag('meta');
-                            $node->setNodeType(AbstractDOMElement::TYPE_SELFCLOSING);
+                                $node = new MetaNode($this->getDOMDocument(), $this);
+                                $tagcontents = substr($this->rawHTML, $this->cursor + 1 + strlen($suggested_tag), $rt - $this->cursor);
 
-                            $this->addChildNode($node);
-                            $this->getDOMDocument()->addMetaNode($node);
-
-                            $attributes = $this->parseAttributes($tagcontents);
-
-                            foreach ($attributes as $attribute_name => $attribute_value){
-                                $node->setAttribute($attribute_name, str_replace(array('\"','\''), '', $attribute_value));
-                            }
-
-                            $this->cursor += strlen($full_html_tag);
-                            return true;
-
-                        // Check for link tags
-                        } else if ($suggested_tag === 'link') {
-
-                            $node = new LinkNode($this->getDOMDocument(), $this);
-                            $tagcontents = substr($this->rawHTML, $this->cursor + 1 + strlen($suggested_tag), $rt - $this->cursor);
-                            $node->setTag('link');
-                            $node->setNodeType(AbstractDOMElement::TYPE_SELFCLOSING);
-
-                            $this->addChildNode($node);
-                            $this->getDOMDocument()->addLinkNode($node);
-
-                            $attributes = $this->parseAttributes($tagcontents);
-
-                            foreach ($attributes as $attribute_name => $attribute_value){
-                                $node->setAttribute($attribute_name, str_replace(array('\"','\''), '', $attribute_value));
-                            }
-
-                            $this->cursor += strlen($full_html_tag);
-                            return true;
-
-                        // Check for selfclosing tags
-                        } else if ($full_html_tag[strlen($full_html_tag) - 2] == '/') {
-                                $node = new DOMNode($this->getDOMDocument(), $this);
+                                $node->setTag('meta');
                                 $node->setNodeType(AbstractDOMElement::TYPE_SELFCLOSING);
-                                $node->setTag(rtrim($suggested_tag, '/'));
 
-                                if ($this instanceof DOM) {
-                                    throw new HTMLStructureException("Selfclosing tags aren't allowed on the same level as the rootnode");
-                                } else {
-                                    $this->addChildNode($node);
+                                $this->addChildNode($node);
+                                $this->getDOMDocument()->addMetaNode($node);
+
+                                $attributes = $this->parseAttributes($tagcontents);
+
+                                foreach ($attributes as $attribute_name => $attribute_value){
+                                    $node->setAttribute($attribute_name, str_replace(array('\"','\''), '', $attribute_value));
                                 }
 
-                                $node->startParse();
                                 $this->cursor += strlen($full_html_tag);
                                 return true;
 
-                            }  else if (in_array(strtolower($suggested_tag), self::$allowed_tags)) {
+                            break;
 
-                            $node = new DOMNode($this->getDOMDocument(), $this);
-                            $tagcontents = substr($this->rawHTML, $this->cursor + 1 + strlen($suggested_tag), $rt - $this->cursor);
+                            case 'link':
+                                $node = new LinkNode($this->getDOMDocument(), $this);
+                                $tagcontents = substr($this->rawHTML, $this->cursor + 1 + strlen($suggested_tag), $rt - $this->cursor);
+                                $node->setTag('link');
+                                $node->setNodeType(AbstractDOMElement::TYPE_SELFCLOSING);
 
-                            if ($this instanceof DOM) {
-                                $this->setRootNode($node);
-                            } else if ($this instanceof DOMNode) {
                                 $this->addChildNode($node);
-                            }
+                                $this->getDOMDocument()->addLinkNode($node);
 
-                            $node->setTag($suggested_tag);
-                            $node->setNodeType(AbstractDOMElement::TYPE_DEFAULT);
+                                $attributes = $this->parseAttributes($tagcontents);
 
-                            // Catch all attribute=value pairs.
-                            $attributes = $this->parseAttributes($tagcontents);
+                                foreach ($attributes as $attribute_name => $attribute_value){
+                                    $node->setAttribute($attribute_name, str_replace(array('\"','\''), '', $attribute_value));
+                                }
 
-                            foreach ($attributes as $attribute_name => $attribute_value){
-                                $node->setAttribute($attribute_name, str_replace(array('\"','\''), '', $attribute_value));
-                            }
+                                $this->cursor += strlen($full_html_tag);
+                                return true;
+                            break;
 
-                            // Update the cursor so it's set at the end of the current started tag.
-                            $this->cursor += strlen($full_html_tag);
-                            // Pass along all leftover data.
-                            $node->setRawHTML(substr($this->rawHTML, $this->cursor));
-                            $node->startParse();
+                            case 'form':
+                                $node = new FormNode($this->getDOMDocument(), $this);
+                                $tagcontents = substr($this->rawHTML, $this->cursor + 1 + strlen($suggested_tag), $rt - $this->cursor);
+                                $node->setTag('form');
+                                $node->setNodeType(self::TYPE_DEFAULT);
 
-                            if ($this->defaultSpan !== null && $node->getTag() === 'span' && !$node->hasChildNodes()) {
-                                $child = new DOMNode($this->getDOMDocument(), $node);
-                                $child->setNodeType(AbstractDOMElement::TYPE_PLAINTEXT);
-                                $child->setRawHTML($this->defaultSpan);
-                                $node->addChildNode($child);
-                            }
+                                $attributes = $this->parseAttributes($tagcontents);
+                                foreach ($attributes as $attribute_name => $attribute_value){
+                                    $node->setAttribute($attribute_name, str_replace(array('\"','\''), '', $attribute_value));
+                                }
 
-                            $this->cursor += $node->getCursor();
-                            return true;
+                                // Update the cursor so it's set at the end of the current started tag.
+                                $this->cursor += strlen($full_html_tag);
+                                // Pass along all leftover data.
+                                $node->setRawHTML(substr($this->rawHTML, $this->cursor));
+                                $node->startParse();
+
+                                $this->cursor += $node->getCursor();
+                                return true;
+                            break;
+
+                            case 'fieldset':
+                            case 'label':
+                            case 'select':
+                            case 'option':
+                                if ($this->getParent()->getTag() != 'select' || $this->getParent()->getTag() != 'datalist') {
+                                    throw new HTMLStructureException('Invalid Nesting, an option tag should ultimately be nested in a select or datalist tag');
+                                }
+                            case 'textarea':
+                            case 'input':
+                                if ($this->getForm() === false) {
+                                    throw new HTMLStructureException('Invalid Nesting, any type of forminput-tag should ultimately be nested in a form tag');
+                                }
+
+                                $node = new InputNode($this->getForm(), $this->getDOMDocument(), $this);
+                                $node->setTag($suggested_tag);
+                                $tagcontents = substr($this->rawHTML, $this->cursor + 1 + strlen($suggested_tag), $rt - $this->cursor);
+
+                                $attributes = $this->parseAttributes($tagcontents);
+                                foreach ($attributes as $attribute_name => $attribute_value){
+                                    $node->setAttribute($attribute_name, str_replace(array('\"','\''), '', $attribute_value));
+                                }
+
+                                // Update the cursor so it's set at the end of the current started tag.
+                                $this->cursor += strlen($full_html_tag);
+                                // Pass along all leftover data.
+                                $node->setRawHTML(substr($this->rawHTML, $this->cursor));
+
+                                $node->startParse();
+                                $this->cursor += $node->getCursor();
+
+                                return true;
+                            break;
+
+                            default:
+
+                                if ($full_html_tag[strlen($full_html_tag) - 2] == '/') {
+
+                                    if ($this instanceof DOM) {
+                                        throw new HTMLStructureException("Selfclosing tags aren't allowed on the same level as the rootnode");
+                                    }
+
+                                    $node = new DOMNode($this->getDOMDocument(), $this);
+                                    $node->setNodeType(AbstractDOMElement::TYPE_SELFCLOSING);
+                                    $node->setTag(rtrim($suggested_tag, '/'));
+
+                                    $this->addChildNode($node);
+
+                                    $node->startParse();
+                                    $this->cursor += strlen($full_html_tag);
+                                    return true;
+
+                                }  else if (in_array(strtolower($suggested_tag), self::$allowed_tags)) {
+
+                                    $node = new DOMNode($this->getDOMDocument(), $this);
+                                    $tagcontents = substr($this->rawHTML, $this->cursor + 1 + strlen($suggested_tag), $rt - $this->cursor);
+
+                                    if ($this instanceof DOM) {
+                                        $this->setRootNode($node);
+                                    } else if ($this instanceof DOMNode) {
+                                        $this->addChildNode($node);
+                                    }
+
+                                    $node->setTag($suggested_tag);
+                                    $node->setNodeType(AbstractDOMElement::TYPE_DEFAULT);
+
+                                    // Catch all attribute=value pairs.
+                                    $attributes = $this->parseAttributes($tagcontents);
+
+                                    foreach ($attributes as $attribute_name => $attribute_value){
+                                        $node->setAttribute($attribute_name, str_replace(array('\"','\''), '', $attribute_value));
+                                    }
+
+                                    // Update the cursor so it's set at the end of the current started tag.
+                                    $this->cursor += strlen($full_html_tag);
+                                    // Pass along all leftover data.
+                                    $node->setRawHTML(substr($this->rawHTML, $this->cursor));
+                                    $node->startParse();
+
+                                    if ($this->defaultSpan !== null && $node->getTag() === 'span' && !$node->hasChildNodes()) {
+                                        $child = new DOMNode($this->getDOMDocument(), $node);
+                                        $child->setNodeType(AbstractDOMElement::TYPE_PLAINTEXT);
+                                        $child->setRawHTML($this->defaultSpan);
+                                        $node->addChildNode($child);
+                                    }
+
+                                    $this->cursor += $node->getCursor();
+                                    return true;
+                                }
+
+                                // Break inner default clause
+                            break;
                         }
+
+                        // Break outer default clause.
                         break;
                 }
 

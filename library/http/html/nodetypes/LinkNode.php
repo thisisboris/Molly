@@ -49,6 +49,14 @@ class LinkNode extends DOMNode {
 
     }
 
+    function setRel($relation) {
+        $this->setRelation($relation);
+    }
+
+    function getRel() {
+        return $this->getRelation();
+    }
+
     function getRelation() {
         return $this->getAttribute('relation');
     }

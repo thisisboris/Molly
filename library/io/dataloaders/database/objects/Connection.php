@@ -13,6 +13,7 @@ namespace Molly\library\io\dataloaders\database\objects;
 
 class Connection {
     private $classname;
+    private $connection;
 
     public function __construct($classname) {
         $this->classname = $classname;

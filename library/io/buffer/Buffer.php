@@ -9,7 +9,7 @@
  
 namespace Molly\library\io\buffer;
 
-use Molly\library\events\EventDispatcher;
+use Molly\library\events\abstracts\AbstractEventDispatcher;
 use Molly\library\events\Event;
 
 use Molly\library\io\buffer\exceptions\BufferAlreadyRegisteredException;
@@ -20,7 +20,7 @@ use Molly\library\io\buffer\exceptions\InvalidBufferOrderException;
 /**
  * Buffer singleton
  **/
-class Buffer extends EventDispatcher {
+class Buffer extends AbstractEventDispatcher {
 	/** Singleton Instance **/
 	private static $instance;
 
