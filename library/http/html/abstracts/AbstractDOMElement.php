@@ -842,21 +842,30 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
                                 return true;
                             break;
 
-                            case 'fieldset':
-                            case 'label':
-                            case 'select':
                             case 'option':
                                 if ($this->getParent()->getTag() != 'select' || $this->getParent()->getTag() != 'datalist') {
                                     throw new HTMLStructureException('Invalid Nesting, an option tag should ultimately be nested in a select or datalist tag');
                                 }
+
                             case 'textarea':
+                            case 'fieldset':
+                            case 'label':
+                            case 'select':
+                                if ($this->getForm() === false) {
+                                    throw new HTMLStructureException('Invalid Nesting, any type of forminput-tag should ultimately be nested in a form tag');
+                                }
+                            break;
+
                             case 'input':
                                 if ($this->getForm() === false) {
                                     throw new HTMLStructureException('Invalid Nesting, any type of forminput-tag should ultimately be nested in a form tag');
                                 }
 
                                 $node = new InputNode($this->getForm(), $this->getDOMDocument(), $this);
-                                $node->setTag($suggested_tag);
+                                $node->setNodeType(AbstractDOMElement::TYPE_SELFCLOSING);
+                                $node->setTag(rtrim($suggested_tag, '/'));
+                                $this->addChildNode($node);
+
                                 $tagcontents = substr($this->rawHTML, $this->cursor + 1 + strlen($suggested_tag), $rt - $this->cursor);
 
                                 $attributes = $this->parseAttributes($tagcontents);
@@ -864,21 +873,15 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
                                     $node->setAttribute($attribute_name, str_replace(array('\"','\''), '', $attribute_value));
                                 }
 
+                                $node->startParse();
                                 // Update the cursor so it's set at the end of the current started tag.
                                 $this->cursor += strlen($full_html_tag);
-                                // Pass along all leftover data.
-                                $node->setRawHTML(substr($this->rawHTML, $this->cursor));
-
-                                $node->startParse();
-                                $this->cursor += $node->getCursor();
-
                                 return true;
                             break;
 
                             default:
 
                                 if ($full_html_tag[strlen($full_html_tag) - 2] == '/') {
-
                                     if ($this instanceof DOM) {
                                         throw new HTMLStructureException("Selfclosing tags aren't allowed on the same level as the rootnode");
                                     }
@@ -886,7 +889,6 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
                                     $node = new DOMNode($this->getDOMDocument(), $this);
                                     $node->setNodeType(AbstractDOMElement::TYPE_SELFCLOSING);
                                     $node->setTag(rtrim($suggested_tag, '/'));
-
                                     $this->addChildNode($node);
 
                                     $node->startParse();

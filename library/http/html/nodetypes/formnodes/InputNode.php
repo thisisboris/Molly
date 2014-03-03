@@ -34,12 +34,11 @@ class InputNode extends DOMNode {
         return $this->getAttribute('type');
     }
 
-    public function setType() {
+    public function setType($type) {
 
     }
 
     public function getValue() {
-        /* The value of an forminput depends on the type of the input */
 
     }
 
