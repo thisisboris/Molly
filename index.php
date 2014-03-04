@@ -9,12 +9,15 @@
 // Require our libary autoloader.
 require_once("library/toolbelt/Classloader.php");
 
-$template = &\Molly\library\out\templating\Theme::getInstance();
-$fileloader = \Molly\library\io\dataloaders\files\FileLoader::getInstance();
+$start_time = microtime(TRUE);
 
-$file = new \Molly\library\io\dataloaders\files\File("index.tpl");
-$file->setLocation("themes/default/frontend/");
-$template->setFile($file);
-$template->setFileloader($fileloader);
+$letter = new \Molly\library\out\messages\Letter(\Molly\library\out\messages\Letter::INFORMATION);
 
-$template->render();
+$letter->setHead('This Message');
+$letter->setContents('has contents');
+$letter->printLetter();
+
+$end_time = microtime(TRUE);
+
+
+echo "microsecs:  " . ($end_time - $start_time);

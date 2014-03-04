@@ -48,7 +48,6 @@ class DOM extends AbstractDOMElement
         $this->setFile($file);
 
         $this->setContent($file->getContent());
-        $this->setRawHTML($file->getContent());
     }
 
     function startParse() {
@@ -216,15 +215,16 @@ class DOM extends AbstractDOMElement
      * Printing or echo'ing this class will call upon this function. It will print the DOMNode to string, which is
      * the same as calling the render function.
      */
-    function _toString() {
-        return $this->getRootNode()->_toString();
+
+    function __toString() {
+        return $this->getRootNode()->__toString();
     }
 
     /**
      * @param $html
      * Sets the content of this DOM-file to a certain string.
      */
-    protected function setContent($html) {
+    public function setContent($html) {
         // Set initial size.
         $this->parse_size = $this->original_size = strlen($html);
         $this->setRawHTML($html);

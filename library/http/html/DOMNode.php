@@ -151,6 +151,21 @@ class DOMNode extends AbstractDOMElement
             case AbstractDOMElement::TYPE_SELFCLOSING:
                 $returnval .= '<';
                 $returnval .= $this->getTag();
+                // Now at all attributes
+                foreach ($this->getAttributes() as $identifier => $value) {
+                    $returnval .= ' ' . $identifier . '="';
+                    if (is_array($value)) {
+                        $temp = new MollyArray($value);
+                        $returnval .= $temp->flatten();
+                        unset($temp);
+                    } elseif (is_string($value)) {
+                        $returnval .= $value;
+                    } elseif (is_object($value)) {
+                        $returnval .= $value->__toString();
+                    }
+                    $returnval .= '"';
+
+                }
                 $returnval .= "/>";
             break;
 
@@ -159,6 +174,12 @@ class DOMNode extends AbstractDOMElement
             break;
 
             case AbstractDOMElement::TYPE_COMMENT:
+                $returnval .= "<!---";
+                $returnval .= $this->rawHTML;
+                $returnval .= "--->";
+
+            break;
+
             case AbstractDOMElement::TYPE_DOCTYPE:
 
             break;

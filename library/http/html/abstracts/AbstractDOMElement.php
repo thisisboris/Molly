@@ -647,6 +647,10 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
     /**
      * Parsing functions
      */
+    public function setContent($string) {
+        $this->rawHTML = $string;
+        $this->setNodeType(self::TYPE_PLAINTEXT);
+    }
 
     protected function setRawHTML($string) {
         $this->rawHTML = $string;

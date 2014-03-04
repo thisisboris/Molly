@@ -13,9 +13,13 @@ namespace Molly\library\http\html\nodetypes;
 use Molly\library\events\Event;
 use Molly\library\http\html\DOMNode;
 use Molly\library\http\html\exceptions\HTMLAttributeException;
+use Molly\library\io\dataloaders\files\File;
+use Molly\library\io\dataloaders\files\FileLoader;
 use Molly\library\utils\collection\MollyArray;
 
 class LinkNode extends DOMNode {
+
+    private $stylesheet;
 
     private $allowedRelations = array(
         "alternate","archives","author",
@@ -36,13 +40,27 @@ class LinkNode extends DOMNode {
         // Send event that the metanode was created
         $this->dispatchEvent(new Event('LINKNode-created', 'LinkNode was created', $this, $this, self::EVENT_LINKNODE_CREATED));
 
+        if ($this->getRelation() === 'stylesheet' && $this->getHref() !== false) {
+
+            // Check if we can load the stylesheet.
+            $temp = explode('/', $this->getHref());
+
+            $filename = $temp[count($temp) - 1];
+            $domfile = $this->getDOMDocument()->getFile();
+
+            $fileloader = FileLoader::getInstance();
+            $fileloader->addExpectedFileLocation($domfile->getLocation());
+
+            $this->stylesheet = $fileloader->load(new File($filename));
+        }
+
         // Return the node
         return $this;
     }
 
     function setRelation($relation) {
         if (in_array($relation, $this->allowedRelations)) {
-            $this->setAttribute('relation', $relation);
+            $this->setAttribute('rel', $relation);
         } else {
             throw new HTMLAttributeException("The relation-attribute of a link-tag cannot be set to " . $relation . ". Relation must be one of the following: " . implode(', ', $this->allowedRelations));
         }
@@ -58,7 +76,7 @@ class LinkNode extends DOMNode {
     }
 
     function getRelation() {
-        return $this->getAttribute('relation');
+        return $this->getAttribute('rel');
     }
 
     /**

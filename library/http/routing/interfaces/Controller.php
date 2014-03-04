@@ -12,6 +12,5 @@ namespace Molly\library\http\routing\interfaces;
 
 
 interface Controller {
-    public function doGet();
-    public function doPost();
+
 } 

@@ -86,7 +86,6 @@ class Theme {
 
         // Call our nifty to string method
         echo $this->template->getRootNode();
-        die();
     }
 
     private function parseElement(DOMElement $node, DOMElement $parentElement = null, $elementVariables = null) {

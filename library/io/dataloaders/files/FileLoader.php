@@ -25,7 +25,7 @@ class FileLoader extends AbstractLoader {
 
     protected function __construct() {}
 
-    public function load(&$file) {
+    public function &load(&$file) {
         if ($file instanceof File) {
             if ( is_null($file->getLocation()) ) {
                 $file->setLocation($this->locate($file->getFilename()));
