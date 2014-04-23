@@ -1,11 +1,13 @@
 <?php
 /**
- * This file is part of molly, an open-source content manager.
+ * Lucy Library
+ * This file is part of the Lucy Library, an open source framework built for Molly.
  *
- * This application is licensed under the Apache License, found in LICENSE.TXT
+ * @author Boris Wintein
+ * @website http://www.thisisboris.be
  *
- * molly CMS - Written by Boris Wintein
  */
+
 namespace Lucy\events\abstracts;
 use Lucy\events\interfaces\Event;
 use Lucy\exceptions\InvalidConstructorException;

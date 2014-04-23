@@ -1,23 +1,23 @@
 <?php
 /**
- * This file is part of molly, an open-source content manager.
+ * This file is part of Molly, an open-source content manager.
  *
  * This application is licensed under the Apache License, found in LICENSE.TXT
  *
- * molly CMS - Written by Boris Wintein
+ * Molly CMS - Written by Boris Wintein
  */
 namespace Lucy\out\templating;
 
-use \Lucy\io\dataloaders\files\FileLoader;
-use \Lucy\io\dataloaders\files\File;
+use Lucy\io\dataloaders\files\FileLoader;
+use Lucy\io\dataloaders\files\File;
 
-use \Lucy\exceptions\IllegalArgumentException;
+use Lucy\exceptions\IllegalArgumentException;
 
-use \Lucy\utils\collection\MollyArray;
+use Lucy\utils\collection\MollyArray;
 
-use \Lucy\http\html\DOM;
-use \Lucy\http\html\DOMNode;
-use \Lucy\http\html\interfaces\DOMElement;
+use Lucy\http\html\DOM;
+use Lucy\http\html\DOMNode;
+use Lucy\http\html\interfaces\DOMElement;
 
 class Theme {
     private static $singleton;

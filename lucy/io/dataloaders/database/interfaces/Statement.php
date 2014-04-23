@@ -1,11 +1,11 @@
 <?php
 /**
  * Statement.php
- * This file is part of molly, an open-source content manager.
+ * This file is part of Molly, an open-source content manager.
  *
  * This application is licensed under the Apache License, found in LICENSE.TXT
  *
- * molly CMS - Written by Boris Wintein
+ * Molly CMS - Written by Boris Wintein
  */
 
 
@@ -13,7 +13,7 @@ namespace Lucy\io\dataloaders\database\interfaces;
 /**
  * Class Statement
  * This copies PDO-function to an extent.
- * @package molly\lucy\io\dataloaders\database\interfaces
+ * @package Molly\library\io\dataloaders\database\interfaces
  */
 interface Statement {
     function bindColumn ($column , &$param);

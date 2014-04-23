@@ -1,21 +1,21 @@
 <?php
 /**
- * This file is part of molly, an open-source content manager.
+ * This file is part of Molly, an open-source content manager.
  *
  * This application is licensed under the Apache License, found in LICENSE.TXT
  *
- * molly CMS - Written by Boris Wintein
+ * Molly CMS - Written by Boris Wintein
  */
 namespace Lucy\http\html\abstracts;
 
 use Lucy\events\abstracts\AbstractEventDispatcher;
 use Lucy\events\Event;
-use \Lucy\exceptions\IllegalArgumentException;
+use Lucy\exceptions\IllegalArgumentException;
 use Lucy\http\html\DOM;
 use Lucy\http\html\exceptions\HTMLStructureException;
-use \Lucy\http\html\interfaces\DOMElement;
+use Lucy\http\html\interfaces\DOMElement;
 
-use \Lucy\http\html\DOMNode;
+use Lucy\http\html\DOMNode;
 use Lucy\http\html\nodetypes\FormNode;
 use Lucy\http\html\nodetypes\formnodes\InputNode;
 use Lucy\http\html\nodetypes\LinkNode;
@@ -211,7 +211,7 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
     /**
      * @param String $attribute
      * @return bool
-     * @throws \Lucy\exceptions\IllegalArgumentException
+     * @throws Lucy\exceptions\IllegalArgumentException
      *
      * Checks whether this node has a certain attribute defined by the string $attribute
      */
@@ -226,7 +226,7 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
     /**
      * @param $attribute
      * @return bool|mixed
-     * @throws \Lucy\exceptions\IllegalArgumentException
+     * @throws Lucy\exceptions\IllegalArgumentException
      *
      * If this node has a certain attribute, defined by the string $attribute, this returns the value of that attribute.
      */
@@ -250,7 +250,7 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
      * @param $attribute
      * @param $value
      * @return bool
-     * @throws \Lucy\exceptions\IllegalArgumentException
+     * @throws Lucy\exceptions\IllegalArgumentException
      *
      * Sets the value of a certain attribute defined by the string $attribute to the value $value.
      *
@@ -317,7 +317,7 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
     /**
      * @param $attribute
      * @return bool
-     * @throws \Lucy\exceptions\IllegalArgumentException
+     * @throws Lucy\exceptions\IllegalArgumentException
      *
      * Removes a certain attribute defined bu the string $attribute.
      */
@@ -407,7 +407,7 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
 
     /**
      * Returns the reference to the parent domnode.
-     * @return \Lucy\http\html\interfaces\DOMElement
+     * @return Lucy\http\html\interfaces\DOMElement
      */
     function &getParent() {
         return $this->parent;
@@ -415,7 +415,7 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
 
     /**
      * Sets the parent of this node to the referenced node.
-     * @param \molly\lucy\http\html\interfaces\DOMElement
+     * @param Lucy\http\html\interfaces\DOMElement
      */
     function setParent(DOMElement &$node) {
         $this->parent = $node;
@@ -423,8 +423,8 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
 
     /**
      * Adds a linked node to this node, also updates the supplied node to contain this node.
-     * @param \Lucy\http\html\DOMNode &$node
-     * @return bool|\Lucy\http\html\DOMNode
+     * @param Lucy\http\html\DOMNode &$node
+     * @return bool|Lucy\http\html\DOMNode
      */
     function addLinkedNode(DOMNode &$node) {
         if(!in_array($node, $this->linkedNodes)) {
@@ -691,7 +691,7 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
 
     function startParse() {
         // Plaintext nodes can't be parsed.
-        if ($this->getNodeType() == self::TYPE_PLAINTEXT) return $this;
+        if ($this->getNodeType == self::TYPE_PLAINTEXT) return $this;
 
         // Send out an event to inform everyone we're going to start parsing data
         $this->dispatchEvent(new Event('DOMElement-preload', 'About to start parsing data', $this, $this, self::EVENT_PARSING_START), $this->rawHTML);
@@ -825,6 +825,8 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
                                 return true;
                             break;
 
+                            /*
+
                             case 'form':
                                 $node = new FormNode($this->getDOMDocument(), $this);
                                 $tagcontents = substr($this->rawHTML, $this->cursor + 1 + strlen($suggested_tag), $rt - $this->cursor);
@@ -853,14 +855,16 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
 
                             case 'textarea':
                             case 'fieldset':
-                            case 'label':
                             case 'select':
                                 if ($this->getForm() === false) {
                                     throw new HTMLStructureException('Invalid Nesting, any type of forminput-tag should ultimately be nested in a form tag');
                                 }
                             break;
 
+
+
                             case 'input':
+
                                 if ($this->getForm() === false) {
                                     throw new HTMLStructureException('Invalid Nesting, any type of forminput-tag should ultimately be nested in a form tag');
                                 }
@@ -883,9 +887,11 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
                                 return true;
                             break;
 
+                            */
+
                             default:
 
-                                if ($full_html_tag[strlen($full_html_tag) - 2] == '/') {
+                                if ($full_html_tag[strlen($full_html_tag) - 2] == '/' || $suggested_tag == 'input') {
                                     if ($this instanceof DOM) {
                                         throw new HTMLStructureException("Selfclosing tags aren't allowed on the same level as the rootnode");
                                     }
@@ -962,6 +968,9 @@ abstract class AbstractDOMElement extends AbstractEventDispatcher implements DOM
                 $this->cursor = $lt;
                 return true;
             }
+
+            // To make sure we do not have never-ending loops, increment our cursor here.
+            $this->cursor++;
         }
 
         return false;

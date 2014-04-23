@@ -1,16 +1,16 @@
 <?php
 /**
- * This file is part of molly, an open-source content manager.
+ * This file is part of Molly, an open-source content manager.
  * 
  * This application is licensed under the Apache License, found in LICENSE.TXT
  * 
- * molly CMS - Written by Boris Wintein
+ * Molly CMS - Written by Boris Wintein
  */
 
 
 namespace Lucy\out\messages\abstracts;
 
-use \Lucy\exceptions\IllegalArgumentException as IllegalArgumentException;
+use Lucy\exceptions\IllegalArgumentException as IllegalArgumentException;
 use Lucy\out\messages\exceptions\MessageException;
 use Lucy\out\messages\interfaces\Message;
 

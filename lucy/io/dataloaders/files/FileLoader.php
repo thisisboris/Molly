@@ -1,42 +1,55 @@
 <?php
 /**
  * FileLoader.php
- * This file is part of molly, an open-source content manager.
+ * This file is part of Molly, an open-source content manager.
  *
  * This application is licensed under the Apache License, found in LICENSE.TXT
  *
- * molly CMS - Written by Boris Wintein
+ * Molly CMS - Written by Boris Wintein
  */
 
 
 namespace Lucy\io\dataloaders\files;
 
+use Lucy\io\dataloaders\abstracts\AbstractLoader;
 use Lucy\io\dataloaders\files\exceptions\FileNotFoundException;
 use Lucy\io\dataloaders\files\exceptions\ExpectedFileLocationsNotSetException;
 use Lucy\io\dataloaders\files\exceptions\NotAFolderException;
 use Lucy\exceptions\IllegalArgumentException;
-use Lucy\io\dataloaders\files\interfaces\File;
-use Lucy\io\streams\FileInputStream;
 
-class FileLoader {
+class FileLoader extends AbstractLoader {
+
+    const FILE_READ_BUFFER = 64;
 
     protected static $efl = array();
 
-    private $stream;
-    private $file;
+    protected function __construct() {}
 
-    public function __construct(File &$file) {
-        $this->stream = new FileInputStream($this->file);
-    }
+    public function &load(&$file) {
+        if ($file instanceof File) {
+            if ( is_null($file->getLocation()) ) {
+                $file->setLocation($this->locate($file->getFilename()));
+            } else if (!file_exists($file->getLocation() . $file->getFilename())) {
+                $file->setLocation($this->locate($file->getFilename()));
+            }
+        } else if (is_string($file)) {
+            $file = new File($file);
+            $file->setLocation($this->locate($file->getFilename()));
 
-    public function load() {
-        $fileContents = "";
-        while ($this->stream->valid()) {
-            $fileContents .= $this->stream->read();
+        } else {
+            throw new IllegalArgumentException($file, "String or File");
         }
 
-        $this->file->setContent($fileContents);
-        return $this->file;
+        // Open the file, read everything, close the file.
+        $fh = fopen($file->getLocation() . $file->getFilename(), 'r');
+        $fileContents = "";
+        while (!feof($fh)) {
+            $fileContents .= fread($fh, self::FILE_READ_BUFFER);
+        }
+        fclose($fh);
+
+        $file->setContent($fileContents);
+        return $file;
     }
 
     public function addExpectedFileLocation($efl) {

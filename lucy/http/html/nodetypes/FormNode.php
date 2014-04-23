@@ -1,10 +1,10 @@
 <?php
 /**
- * This file is part of molly, an open-source content manager.
+ * This file is part of Molly, an open-source content manager.
  * 
  * This application is licensed under the Apache License, found in LICENSE.TXT
  * 
- * molly CMS - Written by Boris Wintein
+ * Molly CMS - Written by Boris Wintein
  */
 
 namespace Lucy\http\html\nodetypes;
@@ -14,7 +14,7 @@ use Lucy\http\html\nodetypes\formnodes\InputNode;
 
 class FormNode extends DOMNode {
     private $allowed_attribute_list = array(
-        'accept', 'accept-charset', 'action', 'autocomplete',
+        'accept', 'accept-charset', 'action', 'autcomplete',
         'enctype',
         'method',
         'name', 'novalidate',

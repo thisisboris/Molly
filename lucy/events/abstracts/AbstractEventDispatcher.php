@@ -1,15 +1,16 @@
 <?php
 /**
- * This file is part of molly, an open-source content manager.
+ * Lucy Library
+ * This file is part of the Lucy Library, an open source framework built for Molly.
  *
- * This application is licensed under the Apache License, found in LICENSE.TXT
+ * @author Boris Wintein
+ * @website http://www.thisisboris.be
  *
- * molly CMS - Written by Boris Wintein
  */
 
 namespace Lucy\events\abstracts;
 
-// "Imports"
+
 use Lucy\events\interfaces\Event;
 use Lucy\events\interfaces\EventDispatcher;
 use Lucy\events\interfaces\EventHandler;
@@ -50,7 +51,7 @@ abstract class AbstractEventDispatcher implements EventDispatcher
      */
     public function addEventListener($eventType, EventHandler &$eventHandler) {
         $interfaces = class_implements($eventHandler);
-        if (isset($interfaces['Lucy\events\interfaces\EventHandler'])) {
+        if (isset($interfaces['Lucy\library\events\interfaces\EventHandler'])) {
             $temp = new MollyArray($this->registeredHandlers);
             if ($temp->search($eventHandler) === false) {
                 $this->registeredHandlers[$eventType][] = array('handler' => $eventHandler, 'added' => time(), 'classname' => "");
@@ -66,7 +67,7 @@ abstract class AbstractEventDispatcher implements EventDispatcher
 
     public function removeEventListener($eventType, EventHandler &$eventHandler) {
         $interfaces = class_implements($eventHandler);
-        if (isset($interfaces['Lucy\events\interfaces\EventHandler'])) {
+        if (isset($interfaces['Lucy\library\events\interfaces\EventHandler'])) {
             $temp = new MollyArray($this->registeredHandlers);
             if ($temp->search($eventHandler) !== false) {
                 $temp = array_keys($temp[$eventType]);

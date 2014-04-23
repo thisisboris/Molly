@@ -1,15 +1,15 @@
 <?php
 /**
- * This file is part of molly, an open-source content manager.
+ * This file is part of Molly, an open-source content manager.
  *
  * This application is licensed under the Apache License, found in LICENSE.TXT
  *
- * molly CMS - Written by Boris Wintein
+ * Molly CMS - Written by Boris Wintein
  */
 
 namespace Lucy\io\dataloaders\files;
 
-use \Lucy\io\dataloaders\abstracts\AbstractHandler;
+use Lucy\io\dataloaders\abstracts\AbstractHandler;
 
 class FileHandler extends AbstractHandler
 {
@@ -19,22 +19,21 @@ class FileHandler extends AbstractHandler
     public $file;
 
     protected function __construct() {
-
+        $this->writer = FileWriter::getInstance();
+        $this->loader = FileLoader::getInstance();
     }
 
     function setFile(&$file) {
         $this->file = &$file;
-        $this->loader = new FileLoader($this->file);
-        $this->writer = FileWriter::getInstance();
     }
 
     function &getFile() {
         return $this->file;
     }
 
-    function load()
+    function load(&$file)
     {
-        return $this->file = &$this->loader->load($this->file);
+        return $this->file = &$this->loader->load($file);
     }
 
     function locate(&$file)

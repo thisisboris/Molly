@@ -1,10 +1,10 @@
 <?php
 /**
- * This file is part of molly, an open-source content manager.
+ * This file is part of Molly, an open-source content manager.
  *
  * This application is licensed under the Apache License, found in LICENSE.TXT
  *
- * molly CMS - Written by Boris Wintein
+ * Molly CMS - Written by Boris Wintein
  */
  
 namespace Lucy\io\cache;
@@ -13,9 +13,9 @@ use Lucy\events\Event;
 use Lucy\io\buffer\Buffer as Buffer;
 use Lucy\events\interfaces\EventHandler as EventHandler;
 
-use \Lucy\io\dataloaders\abstracts\AbstractHandler;
+use Lucy\io\dataloaders\abstracts\AbstractHandler;
 
-Class Archive implements EventHandler {
+Class Archive extends AbstractHandler implements EventHandler {
     // Constants
     const CACHE_LOCATION = "cache";
 
@@ -49,8 +49,6 @@ Class Archive implements EventHandler {
 
 
 	public function handleEvent(Event &$event, $eventdata) {
-
-
         switch ($event->getEventType()) {
             case Buffer::EVENT_BUFFER_REGISTERED:
                 if ($this->scholar->knows($eventdata)) {
@@ -72,7 +70,7 @@ Class Archive implements EventHandler {
         return $this->scholar->load($identifier);
     }
 
-    function locate(&$identifier)
+    function locate($identifier)
     {
         return $this->scholar->locate($identifier);
     }

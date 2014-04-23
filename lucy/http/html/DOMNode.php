@@ -2,18 +2,10 @@
 
 namespace Lucy\http\html;
 
-/**
- * @class DOMNode
- * @author Boris Wintein - <hello@thisisboris.be>;
- * @description
- *
- *
- */
+use Lucy\http\html\abstracts\AbstractDOMElement;
+use Lucy\exceptions\IllegalArgumentException as IllegalArgumentException;
 
-use \Lucy\http\html\abstracts\AbstractDOMElement;
-use \Lucy\exceptions\IllegalArgumentException as IllegalArgumentException;
-
-use \Lucy\utils\collection\MollyArray;
+use Lucy\utils\collection\MollyArray;
 use Lucy\http\html\exceptions\HTMLoadException;
 use Lucy\http\html\interfaces\DOMElement;
 
@@ -286,7 +278,7 @@ class DOMNode extends AbstractDOMElement
 
     /**
      * @param $class string
-     * @throws \Lucy\exceptions\IllegalArgumentException
+     * @throws Lucy\exceptions\IllegalArgumentException
      *
      * Adds a (string of) class(es) to this node.
      */
@@ -310,7 +302,7 @@ class DOMNode extends AbstractDOMElement
 
     /**
      * @param $array
-     * @throws \Lucy\exceptions\IllegalArgumentException
+     * @throws Lucy\exceptions\IllegalArgumentException
      *
      * Sets the class to this array of classes. This function completely overwrites the previous classes.
      */

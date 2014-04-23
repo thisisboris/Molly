@@ -1,23 +1,24 @@
 <?php
-namespace Lucy\http\html;
-
 /**
  * @class DOM
  * @author Boris Wintein - <hello@thisisboris.be>;
  * @description
  *
- *
  */
 
-use Lucy\events\Event;
-use Lucy\exceptions\OverwriteException;
-use Lucy\http\html\abstracts\AbstractDOMElement;
-use \Lucy\http\html\exceptions\HTMLStructureException;
-use \Lucy\http\html\interfaces\DOMElement;
+namespace Lucy\http\html;
 
+use Lucy\events\Event;
+
+use Lucy\exceptions\OverwriteException;
+
+use Lucy\http\html\abstracts\AbstractDOMElement;
+use Lucy\http\html\exceptions\HTMLStructureException;
+use Lucy\http\html\interfaces\DOMElement;
 use Lucy\http\html\nodetypes\LinkNode;
 use Lucy\http\html\nodetypes\MetaNode;
-use \Lucy\io\dataloaders\files\File;
+
+use Lucy\io\dataloaders\files\File;
 
 class DOM extends AbstractDOMElement
 {
@@ -41,7 +42,7 @@ class DOM extends AbstractDOMElement
     private $metanodes;
 
     /**
-     * @param \Lucy\io\dataloaders\files\File $file
+     * @param Lucy\io\dataloaders\files\File $file
      * This class can only be created by accessing the DOMFactory static functions.
      */
     public function __construct(File &$file) {
@@ -71,7 +72,7 @@ class DOM extends AbstractDOMElement
     }
 
     /**
-     * @param \Lucy\io\dataloaders\files\File $file
+     * @param \Molly\library\io\dataloaders\files\File $file
      * Sets the file property. This is used for saving the generated HTML to a file. Caching made easy!
      */
     private function setFile(File &$file) {

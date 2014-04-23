@@ -1,23 +1,23 @@
 <?php
 /**
  * Statement.php
- * This file is part of molly, an open-source content manager.
+ * This file is part of Molly, an open-source content manager.
  *
  * This application is licensed under the Apache License, found in LICENSE.TXT
  *
- * molly CMS - Written by Boris Wintein
+ * Molly CMS - Written by Boris Wintein
  */
 
-namespace Lucy\io\dataloaders\database\objects;
+namespace Molly\library\io\dataloaders\database\objects;
 
 use Lucy\exceptions\IllegalArgumentException;
-use \Lucy\exceptions\InvalidConstructorException;
+use Lucy\exceptions\InvalidConstructorException;
 use Lucy\io\dataloaders\database\abstracts\AbstractStatement;
 
 
 /**
  * Class Statement
- * @package molly\lucy\io\database\node
+ * @package Molly\library\io\database\node
  *
  * By encapsuling a PDOstatement in our own class, we can effectively send events to trigger actions during our database interaction.
  */
