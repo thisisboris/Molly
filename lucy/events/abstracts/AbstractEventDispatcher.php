@@ -51,7 +51,7 @@ abstract class AbstractEventDispatcher implements EventDispatcher
      */
     public function addEventListener($eventType, EventHandler &$eventHandler) {
         $interfaces = class_implements($eventHandler);
-        if (isset($interfaces['Lucy\library\events\interfaces\EventHandler'])) {
+        if (isset($interfaces['Lucy\events\interfaces\EventHandler'])) {
             $temp = new MollyArray($this->registeredHandlers);
             if ($temp->search($eventHandler) === false) {
                 $this->registeredHandlers[$eventType][] = array('handler' => $eventHandler, 'added' => time(), 'classname' => "");
@@ -67,7 +67,7 @@ abstract class AbstractEventDispatcher implements EventDispatcher
 
     public function removeEventListener($eventType, EventHandler &$eventHandler) {
         $interfaces = class_implements($eventHandler);
-        if (isset($interfaces['Lucy\library\events\interfaces\EventHandler'])) {
+        if (isset($interfaces['Lucy\events\interfaces\EventHandler'])) {
             $temp = new MollyArray($this->registeredHandlers);
             if ($temp->search($eventHandler) !== false) {
                 $temp = array_keys($temp[$eventType]);
