@@ -25,6 +25,10 @@ abstract class AbstractInputStream implements InputStream {
         return $this->char = fgetc($this->resource);
     }
 
+    public function isEOF() {
+        return $this->current() === false;
+    }
+
     public function close()
     {
         fclose($this->resource);
@@ -56,7 +60,7 @@ abstract class AbstractInputStream implements InputStream {
      */
     public function next()
     {
-        $this->cursor++;
+        fseek($this->resource, ++$this->cursor, SEEK_SET);
     }
 
     /**
